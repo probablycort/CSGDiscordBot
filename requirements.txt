@@ -1,16 +1,8 @@
-aiohttp
-aiosignal
 asyncio
 asyncpg
-attrs
 constants
 discord
-discord.py
-frozenlist
-idna
-multidict
 psutil
 pywin32
 utils
 WMI
-yarl
