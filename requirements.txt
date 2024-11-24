@@ -1,0 +1,5 @@
+discord
+colorama
+asyncio
+psutil
+wmi

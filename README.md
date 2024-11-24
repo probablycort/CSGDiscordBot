@@ -1,0 +1,2 @@
+# CSGDiscordBotPrivate
+ CSGDiscord Bot - Private
