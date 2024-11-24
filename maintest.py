@@ -398,5 +398,5 @@ for filename in os.listdir('./cogs'):
         client.load_extension(f'cogs.{filename[:-3]}')
 
 load_dotenv()
-TOKEN = os.getenv("CSGDISCORDBOT_TOKEN")
+TOKEN = os.getenv("CSGDISCORDBOT_CANARY_TOKEN")
 client.run(TOKEN)
