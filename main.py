@@ -1,6 +1,7 @@
 import discord, time, asyncio, psutil, wmi, platform, random, sys, os # type: ignore
 from discord.ext import commands, tasks # type: ignore
 from colorama import Back, Fore, Style # type: ignore
+from dotenv import load_dotenv
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -410,4 +411,7 @@ async def slashwinfetch(Interaction: discord.Interaction):
     embed.set_footer(text="To see battery info, do /battery. The battery command may not respond if the bot's PC host doesn\'t have one.")
     await Interaction.response.send_message(embed=embed)
 
-client.run("MTE1NjU5NTQzMzM5NzgyNTcyOA.GnsZuX.-4RCuBAgEQLrFSbw3aS7vfxtD9RlTN6DVcBKyY")
+
+load_dotenv()
+TOKEN = os.getenv("CSGDISCORDBOT_TOKEN")
+client.run(TOKEN)

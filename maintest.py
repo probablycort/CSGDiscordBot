@@ -1,6 +1,7 @@
 import discord, time, asyncio, psutil, wmi, platform, random, sys, os # type: ignore
 from discord.ext import commands, tasks # type: ignore
 from colorama import Back, Fore, Style # type: ignore
+from dotenv import load_dotenv
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -396,4 +397,6 @@ for filename in os.listdir('./cogs'):
     if filename.endswith('.py'):
         client.load_extension(f'cogs.{filename[:-3]}')
 
-client.run("NzcwNzAyNjQxNjIxNzYyMTE4.GnPMSQ.B4icJ1ONFgny8qrWsPI_H3IZ8hPCQnPZZr2MWs")
+load_dotenv()
+TOKEN = os.getenv("CSGDISCORDBOT_TOKEN")
+client.run(TOKEN)
