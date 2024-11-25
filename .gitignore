@@ -165,5 +165,6 @@ cython_debug/
 # Log files
 *.log
 
-# Original main.py file before it was deleted
+# Files that are only visible to Cort's PC Hosting Server
 main-original.py
+start-canary.py
