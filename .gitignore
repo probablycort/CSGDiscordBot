@@ -168,3 +168,4 @@ cython_debug/
 # Files that are only visible to Cort's PC Hosting Server
 main-original.py
 start-canary.py
+botcanary.py

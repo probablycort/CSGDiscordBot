@@ -185,7 +185,7 @@ class CSGDiscordBot(commands.Bot):
                     """# Hello there!
 My default prefix is `.` and cannot be changed. If you want to see commands that I can provide you with, do the `.help` command.
 However, if you want to do my commands in DMs, do my commands on my DM!
--# v2.1 | https://bit.ly/CSGDiscordBot
+-# v3.0 | https://bit.ly/CSGDiscordBot
 """
                 )
             case "testwithoutprefix":

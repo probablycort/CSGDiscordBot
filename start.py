@@ -39,7 +39,7 @@ async def main():
         extensions = ['owner', 'fun', 'default']
         statuses = (
             'bit.ly/CSGDiscordBot',
-            'v2.1a | .help',
+            'v3.0 | .help',
             'that one crazy ass game that people talked about',
             'UNDERTALE',
             'fart',
@@ -51,7 +51,7 @@ async def main():
             'who is asyncio and why is it sleeping for 60 sec',
             'HAWK TUAH 2: the sequel',
             'fortnite i guess',
-            'too much statuses.. send help',
+            'too much statuses.. send .help',
         )
 
         debug_mode=os.getenv("DEBUG_MODE") == '1'
