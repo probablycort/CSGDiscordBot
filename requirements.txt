@@ -1,5 +1,5 @@
 discord
-colorama
 asyncio
 psutil
 wmi
+python-dotenv
