@@ -1,7 +1,8 @@
-# CSGDiscordBotPrivate
- CSGDiscord Bot - Private
+# CortSiriGoogle Discord Bot
+CortSiriGoogle, aka. CSGDiscordBot, is an experimental Discord bot based on Python. It is a part of the [CortSiriGoogle Studios](https://cortstudios.carrd.co/) Project. Developed by [@probablycort](https://github.com/probablycort/) and rewritten by [@searingmoonlight](https://github.com/searingmoonlight/). The bot has some unique commands, statuses and more. The default prefix of this bot is `.`, and do `.help` for commands.
 
-# Quick Setup
+## Quick Setup
+Make a virtual enviroment, then install the requirements at `requirements.txt`:
 
 ```
 python -m venv venv
@@ -28,3 +29,14 @@ Then sync app commands globally for them to show up:
 ```
 .sync global
 ```
+## Configuring the bot
+### Prefix
+Configure the prefix of the bot at `bot.py`, on line 32.
+
+### Statuses
+Configure the bot's statuses by going to `start.py`, under line 40. 
+
+### Commands
+While commands (with prefix) and app commands are located under the `cogs` folder, the commands without prefix is located at `bot.py`, under line 162.
+
+#### CSGDiscordBot before v3.0 has been archived. Go to https://github.com/probablycort/CSGArchivedDiscordBot.
