@@ -17,6 +17,7 @@ class Windows(commands.Cog):
     def __init__(self, bot):
         self.bot: CSGDiscordBot = bot
 
+    @staticmethod
     def get_battery_info():
         battery = psutil.sensors_battery()
         percent = battery.percent
