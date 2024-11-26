@@ -21,6 +21,11 @@ class PutCogNameHere(commands.Cog):
     #  @commands.hybrid_command for both prefix and slash
     #  @app_commands.command for app/slash commands
     #
+    # Then add the file name (without the .py) on the
+    # extensions variable on start.py:
+    #
+    #  extensions = ['owner', 'fun', 'default', 'filename']
+    #
     # ~ Kita
 
 async def setup(bot: CSGDiscordBot):
