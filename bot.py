@@ -133,7 +133,7 @@ class CSGDiscordBot(commands.Bot):
         self.on_command_error = self.handle_error
         self.tree.error(self.handle_error)
 
-        if self.platform == "windows":
+        if self.platform == "win32":
             await self.load_extension("cogs.windows")
         else:
             log.warning("Not running on Windows. Windows-only commands disabled.")
