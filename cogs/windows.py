@@ -26,7 +26,7 @@ class Windows(commands.Cog):
 
     @commands.hybrid_command()
     async def battery(self, ctx: commands.Context):
-        percent, charging = get_battery_info()
+        percent, charging = self.get_battery_info()
 
         if charging:
             status = "charging"
