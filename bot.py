@@ -198,6 +198,8 @@ However, if you want to do my commands in DMs, do my commands on my DM!
                 await message.channel.send("https://tenor.com/view/barn-gif-19719443")
             case "the battery is full.":
                 await message.channel.send("SHUT THE FUCK UP")
+            case "but it refused.":
+                await message.channel.send("https://i.redd.it/o1efjhddq2x21.jpg")
             case _:
                 pass
 

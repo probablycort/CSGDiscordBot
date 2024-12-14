@@ -6,11 +6,16 @@ from discord.ext import commands
 import logging
 from typing import TYPE_CHECKING, Optional
 
+import os, sys
+
 if TYPE_CHECKING:
     from bot import CSGDiscordBot
 
 
 log = logging.getLogger("CSGDiscordBot")
+
+def restart_bot(): 
+    os.execv(sys.executable, ['python'] + sys.argv)
 
 
 class Core(commands.Cog):
@@ -108,7 +113,7 @@ class Core(commands.Cog):
     @commands.command(hidden=True)
     async def unload(self, ctx: commands.Context, *, mod: str):
         if mod == 'cogs.owner':
-            return await ctx.reply("Are u stupid?")
+            return await ctx.reply("Are you stupid?")
         try:
             await ctx.channel.typing()
             await self.bot.unload_extension(mod)
@@ -162,6 +167,11 @@ class Core(commands.Cog):
         await ctx.reply("Shutting down :wave:")
         await self.bot.close()
 
+    @commands.is_owner()
+    @commands.command(hidden=True)
+    async def restart(self, ctx: commands.Context):
+        await ctx.reply("Restarting :wave:\n-# Please check the bot\'s status to confirm that it has been restarted. The bot\'s status usually starts off with `bit.ly/CSGDiscordBot` and `v3.0 | .help`.")
+        restart_bot()
 
 async def setup(bot: CSGDiscordBot):
     await bot.add_cog(Core(bot))
