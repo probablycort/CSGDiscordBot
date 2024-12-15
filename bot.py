@@ -161,6 +161,12 @@ class CSGDiscordBot(commands.Bot):
 
         if content.__contains__("the battery is full"):
             return await message.channel.send("SHUT THE FUCK UP")
+        
+        if content.__contains__("the battery is fu11"):
+            return await message.channel.send("SHUT THE FUCK UP")
+        
+        if content.__contains__("the battery is fuii"):
+            return await message.channel.send("SHUT THE FUCK UP")
 
         if content.__contains__("but it refused"):
             return await message.channel.send("https://i.redd.it/o1efjhddq2x21.jpg")
