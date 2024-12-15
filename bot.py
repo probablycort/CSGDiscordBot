@@ -162,6 +162,12 @@ class CSGDiscordBot(commands.Bot):
         if content.__contains__("the battery is full"):
             return await message.channel.send("SHUT THE FUCK UP")
 
+        if content.__contains__("but it refused"):
+            return await message.channel.send("https://i.redd.it/o1efjhddq2x21.jpg")
+        
+        if content.__contains__("!barn"):
+            return await message.channel.send("https://tenor.com/view/barn-gif-19719443")
+
         match content:
             case "probably cort":
                 await message.channel.send(
@@ -197,10 +203,6 @@ However, if you want to do my commands in DMs, do my commands on my DM!
                 )
             case "ping":
                 await message.channel.send("Pong")
-            case "!barn":
-                await message.channel.send("https://tenor.com/view/barn-gif-19719443")
-            case "but it refused.":
-                await message.channel.send("https://i.redd.it/o1efjhddq2x21.jpg")
             case _:
                 pass
 
