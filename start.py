@@ -40,7 +40,8 @@ async def main():
         statuses = (
             'bit.ly/CSGDiscordBot',
             'v3.0 | .help',
-            'Merry \"Cort\"mas!!',
+            'HAPPY NEW YEAR 2025!',
+            'my new year resolution will be 1600x720',
             'fart',
             'water.',
             'balls',
