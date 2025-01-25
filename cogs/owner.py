@@ -14,8 +14,9 @@ if TYPE_CHECKING:
 
 log = logging.getLogger("CSGDiscordBot")
 
-def restart_bot(): 
-    os.execv(sys.executable, ['python'] + sys.argv)
+
+def restart_bot():
+    os.execv(sys.executable, ["python"] + sys.argv)
 
 
 class Core(commands.Cog):
@@ -112,7 +113,7 @@ class Core(commands.Cog):
     @commands.is_owner()
     @commands.command(hidden=True)
     async def unload(self, ctx: commands.Context, *, mod: str):
-        if mod == 'cogs.owner':
+        if mod == "cogs.owner":
             return await ctx.reply("Are you stupid?")
         try:
             await ctx.channel.typing()
@@ -170,8 +171,11 @@ class Core(commands.Cog):
     @commands.is_owner()
     @commands.command(hidden=True)
     async def restart(self, ctx: commands.Context):
-        await ctx.reply("Restarting :wave:\n-# Please check the bot\'s status to confirm that it has been restarted. The bot\'s status usually starts off with `bit.ly/CSGDiscordBot` and `v3.0 | .help`.")
+        await ctx.reply(
+            "Restarting :wave:\n-# Please check the bot's status to confirm that it has been restarted. The bot's status usually starts off with `bit.ly/CSGDiscordBot` and `v3.0 | .help`."
+        )
         restart_bot()
+
 
 async def setup(bot: CSGDiscordBot):
     await bot.add_cog(Core(bot))

@@ -28,5 +28,6 @@ class PutCogNameHere(commands.Cog):
     #
     # ~ Kita
 
+
 async def setup(bot: CSGDiscordBot):
     await bot.add_cog(PutCogNameHere(bot))

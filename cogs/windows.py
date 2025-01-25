@@ -40,10 +40,15 @@ class Windows(commands.Cog):
             description=f"The battery percentage of this bot's host PC is currently at **`{percent}%`**, and it is currently **`{status}`**.",
             color=0x40A02B,
         )
-        embed.set_footer(text="Yes, if the battery is full, we know. Just shut up.")
+        if percent == 100:
+            embed.set_footer(text="We know the battery is full. Just shut the fuck up.")
+        else:
+            embed.set_footer(text="Yes, if the battery is full, we know. Just shut up.")
         await ctx.send(embed=embed)
 
-    @commands.hybrid_command(description="Get CortSiriGoogle PC Client Info (this may or may not work depending on OS the host runs on)")
+    @commands.hybrid_command(
+        description="Get CortSiriGoogle PC Client Info (this may or may not work depending on OS the host runs on)"
+    )
     async def winfetch(self, ctx: commands.Context):
         # THIS COMMAND IS FOR WINDOWS ONLY!!!
 

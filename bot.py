@@ -3,6 +3,7 @@ from discord.ext import commands
 from discord.ext import tasks
 
 import datetime
+import re
 import sys
 import logging
 from itertools import cycle
@@ -22,11 +23,14 @@ class CSGDiscordBot(commands.Bot):
     ):
         self.is_restart = False
         self.platform = sys.platform
-        self.testing_guild = int(testing_guild)
+        self.testing_guild = testing_guild
         self.debug_mode = debug_mode
         self.extensions_ = extensions
         self.statuses = cycle(statuses)
         self.start_time = discord.utils.utcnow()
+        self.battery_pattern = re.compile(
+            r"(?i)The battery is (fu(l|1|i|\||!)*|cort|empty|drained|low|gone)(\.)?"
+        )
 
         super().__init__(
             command_prefix=".",
@@ -140,7 +144,7 @@ class CSGDiscordBot(commands.Bot):
 
         if self.debug_mode and self.testing_guild:
 
-            guild = discord.Object(self.testing_guild)
+            guild = discord.Object(int(self.testing_guild))
             self.tree.copy_global_to(guild=guild)
             await self.tree.sync(guild=guild)
 
@@ -159,22 +163,17 @@ class CSGDiscordBot(commands.Bot):
 
         content = message.content.lower()
 
-        if content.__contains__("the battery is full"):
+        phr = self.battery_pattern.search(content)
+        if phr:
             return await message.channel.send("SHUT THE FUCK UP")
-        
-        if content.__contains__("the battery is fu11"):
-            return await message.channel.send("SHUT THE FUCK UP")
-        
-        if content.__contains__("the battery is fuii"):
-            return await message.channel.send("SHUT THE FUCK UP")
-
-        if content.__contains__("but it refused"):
-            return await message.channel.send("https://i.redd.it/o1efjhddq2x21.jpg")
-        
-        if content.__contains__("!barn"):
-            return await message.channel.send("https://tenor.com/view/barn-gif-19719443")
 
         match content:
+            case "but it refused":
+                return await message.channel.send("https://i.redd.it/o1efjhddq2x21.jpg")
+            case "!barn":
+                return await message.channel.send(
+                    "https://tenor.com/view/barn-gif-19719443"
+                )
             case "probably cort":
                 await message.channel.send(
                     "https://media.discordapp.net/attachments/763430451217432589/793847564045647872/unknown.png?width=130&height=177"

@@ -1,5 +1,4 @@
-discord
-asyncio
+discord.py
 psutil
 wmi
 python-dotenv

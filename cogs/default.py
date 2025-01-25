@@ -17,12 +17,12 @@ class Default(commands.Cog):
     @commands.hybrid_command(description="Show bot uptime")
     async def uptime(self, ctx: commands.Context):
         return await ctx.reply(
-            "I have been up for " +
-            self.bot.humanize_timedelta(
+            "I have been up for "
+            + self.bot.humanize_timedelta(
                 timedelta=(discord.utils.utcnow() - self.bot.start_time)
-                ) +
-            f" (since {discord.utils.format_dt(self.bot.start_time)})"
             )
+            + f" (since {discord.utils.format_dt(self.bot.start_time)})"
+        )
 
     @commands.hybrid_command(description="Make me say something")
     @app_commands.describe(message="The message you want me to say")
@@ -32,9 +32,9 @@ class Default(commands.Cog):
     @commands.hybrid_command(description="Make me say something inside an embed.")
     @app_commands.describe(message="The message you want me to say")
     async def embedecho(self, ctx: commands.Context, *, message):
-        embed=discord.Embed(description=message, color=0x1e66f5)
+        embed = discord.Embed(description=message, color=0x1E66F5)
         await ctx.send(embed=embed)
-    
+
 
 async def setup(bot: CSGDiscordBot):
     await bot.add_cog(Default(bot))
