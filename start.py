@@ -39,13 +39,7 @@ async def main():
         statuses = (
             'bit.ly/CSGDiscordBot',
             'v3.0 | .help',
-            'Jan 13, 2025.',
-            'Rest in peace, TattleKat.',
-            'You will always be remembered in the community.',
-            'Everyone, seek help if you have any mental issues.',
-            'Please, everyone. Keep yourself safe. -Cort',
-            'Returning statuses to normal',
-            'v3.0 | .help',
+            'Made with <3 by CSGDiscordBot Devs',
             'water.',
             'fart',
             'I KNOW THE BATTERY IS FULL, JUST SHUT THE FUCK UP.',
@@ -54,8 +48,6 @@ async def main():
             'please give me some song suggestions. i need',
             'nothing. i\'m bored',
             'who is asyncio and why is it sleeping for 60 sec',
-            'Find Luigi',
-            'mmgh...',
             'UNDERTALE',
             'DELTARUNE',
             'Bloons TD 6',
@@ -72,6 +64,7 @@ async def main():
             'too much statuses.. send .help',
             "MiSide",
             "with Cappie",
+            'Calculator',
             "on a Nintendo Switch 2",
         )
 
