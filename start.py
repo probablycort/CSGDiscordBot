@@ -39,6 +39,7 @@ async def main():
         statuses = (
             "bit.ly/CSGDiscordBot",
             "v3.0 | .help",
+            "yes, ive seen the hidden message in ur art..",
             "So tell me..",
             "How it felt when you walked on water?",
             "Did you get your wish?",
