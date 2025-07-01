@@ -161,7 +161,11 @@ class CSGDiscordBot(commands.Bot):
         if message.author == self.user:
             return
 
+        girlcockx = self.get_sticker(1384139430067175495)
+
         content = message.content.lower()
+        if content.__contains__("girlcockx"):
+            return await message.reply(stickers=[girlcockx])
 
         phr = self.battery_pattern.search(content)
         if phr:
