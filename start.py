@@ -129,6 +129,7 @@ async def main():
             "in this beautiful void",
             "i exist.",
             "Vanishing into our Final Stop",
+            "Uma Musume: Pretty Derby",
         )
 
         debug_mode = os.getenv("DEBUG_MODE") == "1"
