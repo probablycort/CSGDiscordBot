@@ -110,7 +110,7 @@ async def main():
             "Let's head to Tougenkyou",
             "Niko and the World Machine",
             "...",
-            "Can you feel my heart is beating?,
+            "Can you feel my heart is beating?",
             "Hear me simply breathing?",
             "It's this strangely human feeling",
             "Oh, I wanna know if you would",
