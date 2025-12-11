@@ -25,7 +25,7 @@ statuses = (
     "...",
     "When the metronome is clicking",
     "MIDI clock is ticking",
-    "I can feel it in the rhythm"
+    "I can feel it in the rhythm",
     "Loving undefinable",
     "A simple human being",
     "Far beyond the meaning",
