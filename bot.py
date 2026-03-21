@@ -104,7 +104,7 @@ class CSGDiscordBot(commands.Bot):
     async def statusChanger(self):
         await self.wait_until_ready()
         status: str = next(self.statuses)
-        await self.change_presence(activity=discord.Game(status))
+        await self.change_presence(activity=discord.CustomActivity(name=status))
 
     async def handle_error(
         self, ctx: discord.Interaction | commands.Context, exc: Exception
