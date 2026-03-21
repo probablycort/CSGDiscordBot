@@ -112,6 +112,24 @@ class Core(commands.Cog):
 
     @commands.is_owner()
     @commands.command(hidden=True)
+    async def dm(self, ctx, user: discord.User, *, content: str):
+            try:
+                embed = discord.Embed(
+                    title="Message from CortSiriGoogle Community",
+                    description=content,
+                    color=0xcba6f7
+                )
+                embed.set_footer(text=f"Sent by {ctx.author.name}")
+                await user.send(embed=embed)
+                await ctx.send(f"## ✅ Message successfully sent to **{user}**!")
+                print(f"[LOG] {ctx.author} sent a DM to {user}: {content}")
+            except discord.Forbidden:
+                await ctx.send(f"## ❌ Could not DM **{user}**. \nThey likely have DMs disabled or have blocked the bot.")
+            except Exception as e:
+                await ctx.send(f"## ❌ An error occurred: \n{e}")
+
+    @commands.is_owner()
+    @commands.command(hidden=True)
     async def unload(self, ctx: commands.Context, *, mod: str):
         if mod == "cogs.owner":
             return await ctx.reply("Are you stupid?")
