@@ -1,5 +1,5 @@
 # CortSiriGoogle Discord Bot
-CortSiriGoogle, also known as CSGDiscordBot, is an experimental Discord bot based on Python, specifically made for the CortSiriGoogle Studios Discord server. It is currently part of a side project made by [CortSiriGoogle Studios](https://cortstudios.carrd.co/). The bot has some unique commands, statuses and more. The default prefix of this bot is `.`, and do `.help` for commands.
+CortDB (formerly CortSiriGoogle), also known as CSGDiscordBot, is an experimental Discord bot based on Python, specifically made for the CortSiriGoogle Studios Discord server. It is currently part of a side project made by [CortSiriGoogle Studios](https://cortstudios.carrd.co/). The bot has some unique commands, statuses and more. The default prefix of this bot is `.`, and do `.help` for commands.
 
 > [!NOTE]
 > CSGDiscordBot below v3.0 has been archived and can be found at https://github.com/probablycort/CSGArchivedDiscordBot.
