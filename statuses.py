@@ -12,7 +12,7 @@ statuses = (
     "\"Every other day, I'm wondering\"",
     "\"What's a human being gotta be like?\"",
     "\"What's a way to just be competent?\"",
-    "\"These sweet instincts, ruin my life.\""
+    "\"These sweet instincts, ruin my life.\"",
     "\"Every other day, I'm wondering\"",
     "\"Was it a mistake to try and define\"",
     "\"What I'm certain's mad imcompetence?\"",
