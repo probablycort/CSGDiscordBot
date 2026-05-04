@@ -167,6 +167,12 @@ class CSGDiscordBot(commands.Bot):
         if content.__contains__("girlcockx"):
             return await message.reply(stickers=[girlcockx], mention_author=False)
 
+        ytlink = self.get_sticker(1500413690699186388)
+
+        content = message.content.lower()
+        if content.__contains__("?si="):
+            return await message.reply(stickers=[ytlink], mention_author=False)
+
         phr = self.battery_pattern.search(content)
         if phr:
             return await message.channel.send("SHUT THE FUCK UP")
