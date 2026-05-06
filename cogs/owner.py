@@ -122,7 +122,7 @@ class Core(commands.Cog):
                 embed.set_footer(text=f"Sent by {ctx.author.name}")
                 await user.send(embed=embed)
                 await ctx.send(f"## ✅ Message successfully sent to **{user}**!")
-                print(f"[LOG] {ctx.author} sent a DM to {user}: {content}")
+                log.info("[LOG] %s sent a DM to %s: %s", ctx.author, user, content)
             except discord.Forbidden:
                 await ctx.send(f"## ❌ Could not DM **{user}**. \nThey likely have DMs disabled or have blocked the bot.")
             except Exception as e:
