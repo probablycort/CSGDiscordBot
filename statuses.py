@@ -1,22 +1,31 @@
-statuses = (
+SONG_INFO = {
+    "title": "Clover",
+    "artist": "FLAVOR FOLEY",
+    "album": "MIRROR MODULATION",
+    "release_year": "2026",
+    "youtube_url": "https://www.youtube.com/watch?v=cY0qV7q9IC4",
+} # Fill out the song info
+
+# Change status delay in seconds
+NORMAL_DELAY = 60
+LYRIC_DELAY = 5
+
+NORMAL_STATUSES = (
     "bit.ly/CSGDiscordBot",
-    "v3.2 | .help",
-    "my statuses are now using CustomActivity!! yay",
-    "I KNOW THE BATTERY IS FULL, JUST SHUT THE FUCK UP.",
-    "[stupid ass status here]",
-    "do NOT abuse me. please.",
-    "nothing. i'm bored",
-    "ami, i know. the battery is full. i get it.",
-    "...",
-    "\"Every other day, I'm wondering\"",
-    "\"What's a human being gotta be like?\"",
-    "\"What's a way to just be competent?\"",
-    "\"These sweet instincts, ruin my life.\"",
-    "\"Every other day, I'm wondering\"",
-    "\"Was it a mistake to try and define\"",
-    "\"What I'm certain's mad imcompetence?\"",
-    "\"These sweet instincts, ruin my life.\"",
-    "...",
-    "Vanishing into our Final Stop",
-    "holy shit lois my statuses changed so suddenly",
+    "v3.3 | .help",
+    "...",  # Triggers the lyric sequence
 )
+
+LYRICS = (
+    '"Between the verdant touch of green"',
+    '"The dappled sunlight casts a crown on me"',
+    '"And though I trip and fall"',
+    '"I\'ll face the all and breathe it into me"',
+    '"Daydream"',
+    '"I\'ll weave it in a wreath"',
+    '"In colors of acrylic"',
+    '"To mix them on my palette"',
+    '"The gallery of life yet lived is-"',
+)
+
+statuses = NORMAL_STATUSES + LYRICS

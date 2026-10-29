@@ -6,8 +6,11 @@ import datetime
 import re
 import sys
 import logging
+import asyncio
 from itertools import cycle
 from typing import Iterable, SupportsInt, Optional
+
+from statuses import NORMAL_STATUSES, LYRICS, NORMAL_DELAY, LYRIC_DELAY
 
 log = logging.getLogger("CSGDiscordBot")
 
@@ -26,8 +29,19 @@ class CSGDiscordBot(commands.Bot):
         self.testing_guild = testing_guild
         self.debug_mode = debug_mode
         self.extensions_ = extensions
-        self.statuses = cycle(statuses)
         self.start_time = discord.utils.utcnow()
+        
+        # Dictionary to track active tracker warnings
+        self.active_warnings = {}
+        
+        # Clean separation using Method 2 status lists
+        self.normal_statuses = cycle(NORMAL_STATUSES)
+        self.lyric_statuses = cycle(LYRICS)
+        
+        # Dynamically determine the last lyric line as the exit trigger
+        self.last_lyric_line = LYRICS[-1] if LYRICS else None
+        self.lyric_mode = False
+
         self.battery_pattern = re.compile(
             r"(?i)The battery is (fu(l|1|i|\||!)*|cort|empty|drained|low|gone)(\.)?"
         )
@@ -46,32 +60,6 @@ class CSGDiscordBot(commands.Bot):
         timedelta: Optional[datetime.timedelta] = None,
         seconds: Optional[SupportsInt] = None,
     ) -> str:
-        """
-        Get a locale aware human timedelta representation.
-
-        This works with either a timedelta object or a number of seconds.
-
-        Fractional values will be omitted, and values less than 1 second
-        an empty string.
-
-        Parameters
-        ----------
-        timedelta: Optional[datetime.timedelta]
-            A timedelta object
-        seconds: Optional[SupportsInt]
-            A number of seconds
-
-        Returns
-        -------
-        str
-            A locale aware representation of the timedelta or seconds.
-
-        Raises
-        ------
-        ValueError
-            The function was called with neither a number of seconds nor a timedelta object
-        """
-
         try:
             obj = seconds if seconds is not None else timedelta.total_seconds()
         except AttributeError:
@@ -100,16 +88,31 @@ class CSGDiscordBot(commands.Bot):
 
         return ", ".join(strings)
 
-    @tasks.loop(minutes=1)
+    @tasks.loop(seconds=1)
     async def statusChanger(self):
         await self.wait_until_ready()
-        status: str = next(self.statuses)
+
+        if self.lyric_mode:
+            status = next(self.lyric_statuses)
+            delay = LYRIC_DELAY  # Uses configurable delay from statuses.py
+            
+            # Exit lyric mode automatically after reaching the last lyric in LYRICS
+            if status == self.last_lyric_line:
+                self.lyric_mode = False
+        else:
+            status = next(self.normal_statuses)
+            delay = NORMAL_DELAY  # Uses configurable delay from statuses.py
+            
+            # Enter lyric mode when hitting the trigger status
+            if status == "...":
+                self.lyric_mode = True
+
         await self.change_presence(activity=discord.CustomActivity(name=status))
+        await asyncio.sleep(delay)
 
     async def handle_error(
         self, ctx: discord.Interaction | commands.Context, exc: Exception
     ):
-
         if isinstance(exc, commands.CommandNotFound):
             return
 
@@ -130,20 +133,21 @@ class CSGDiscordBot(commands.Bot):
             return await ctx.reply(embed=embed, mention_author=False)
 
     async def setup_hook(self):
-
         for extension in self.extensions_:
             await self.load_extension("cogs." + extension)
 
         self.on_command_error = self.handle_error
         self.tree.error(self.handle_error)
 
+        # Automatically load platform-specific cogs based on OS
         if self.platform == "win32":
             await self.load_extension("cogs.windows")
+            log.info("Running on Windows. Loaded cogs.windows.")
         else:
-            log.warning("Not running on Windows. Windows-only commands disabled.")
+            await self.load_extension("cogs.linux")
+            log.info("Running on Linux/Unix. Loaded cogs.linux.")
 
         if self.debug_mode and self.testing_guild:
-
             guild = discord.Object(int(self.testing_guild))
             self.tree.copy_global_to(guild=guild)
             await self.tree.sync(guild=guild)
@@ -161,17 +165,28 @@ class CSGDiscordBot(commands.Bot):
         if message.author == self.user:
             return
 
-        girlcockx = self.get_sticker(1384139430067175495)
-
         content = message.content.lower()
-        if content.__contains__("girlcockx"):
-            return await message.reply(stickers=[girlcockx], mention_author=False)
 
-        ytlink = self.get_sticker(1500413690699186388)
+        if "girlcockx" in content:
+            girlcockx = self.get_sticker(1384139430067175495)
+            if girlcockx:
+                return await message.reply(stickers=[girlcockx], mention_author=False)
 
-        content = message.content.lower()
-        if content.__contains__("?si="):
-            return await message.reply(stickers=[ytlink], mention_author=False)
+        if "?si=" in content:
+            warning = await message.reply(
+                "## ⚠️ Your YouTube link contains a tracker parameter.\nPlease edit your message and remove everything after ? and the question mark itself.",
+                mention_author=False
+            )
+            self.active_warnings[message.id] = warning
+            return await self.process_commands(message)
+
+        if "?a=" in content:
+            warning = await message.reply(
+                "## ⚠️ Your Twitter link contains a tracker parameter.\nPlease edit your message and remove everything after ? and the question mark itself.",
+                mention_author=False
+            )
+            self.active_warnings[message.id] = warning
+            return await self.process_commands(message)
 
         phr = self.battery_pattern.search(content)
         if phr:
@@ -222,3 +237,15 @@ However, if you want to do my commands in DMs, do my commands on my DM!
                 pass
 
         await self.process_commands(message)
+
+    async def on_message_edit(self, before: discord.Message, after: discord.Message):
+        if before.id in self.active_warnings:
+            new_content = after.content.lower()
+            if "?si=" not in new_content and "?a=" not in new_content:
+                warning_msg = self.active_warnings[before.id]
+                try:
+                    await warning_msg.delete()
+                except discord.HTTPException:
+                    pass
+                
+                del self.active_warnings[before.id]

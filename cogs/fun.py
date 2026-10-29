@@ -8,6 +8,8 @@ import asyncio
 import random
 from typing import TYPE_CHECKING
 
+from statuses import SONG_INFO, LYRICS, LYRIC_DELAY
+
 if TYPE_CHECKING:
     from bot import CSGDiscordBot
 
@@ -15,6 +17,57 @@ if TYPE_CHECKING:
 class Fun(commands.Cog):
     def __init__(self, bot):
         self.bot: CSGDiscordBot = bot
+
+    @commands.hybrid_command(
+        aliases=["status", "lyrics"],
+        description="Displays info about the status lyric sequence",
+    )
+    async def song(self, ctx: commands.Context):
+        """Displays details about the status lyric sequence."""
+        status_mode = (
+            "Lyric Sequence (Active)"
+            if self.bot.lyric_mode
+            else "Normal Status Cycle"
+        )
+
+        embed = discord.Embed(
+            title=f"🎵 {SONG_INFO['title']}",
+            description=f"By **{SONG_INFO['artist']}**",
+            color=0x7289DA,
+            url=SONG_INFO.get("youtube_url"),
+        )
+        embed.add_field(
+            name="Album",
+            value=f"`{SONG_INFO.get('album', 'N/A')}`",
+            inline=True,
+        )
+        embed.add_field(
+            name="Year",
+            value=f"`{SONG_INFO.get('release_year', 'N/A')}`",
+            inline=True,
+        )
+        embed.add_field(
+            name="Status Mode", value=f"`{status_mode}`", inline=False
+        )
+        embed.add_field(
+            name="Total Lyric Lines",
+            value=f"`{len(LYRICS)} lines`",
+            inline=True,
+        )
+        embed.add_field(
+            name="Lyric Delay", value=f"`{LYRIC_DELAY} seconds / line`", inline=True
+        )
+
+        if SONG_INFO.get("youtube_url"):
+            embed.add_field(
+                name="Links",
+                value=f"[YouTube]({SONG_INFO['youtube_url']})",
+                inline=False,
+            )
+
+        embed.set_footer(text="Statuses Info")
+
+        await ctx.send(embed=embed)
 
     @commands.hybrid_command(aliases=["dice"], description="Roll a dice")
     async def roll(self, ctx, max: int = 6):
@@ -26,7 +79,7 @@ class Fun(commands.Cog):
         MAX_GUESSES = 15
         number = random.randint(1, max)
         await ctx.send(
-            f"## Guessing game has been started!\nPlease guess a number between **1-{max}.**\nYou have **{MAX_GUESSES}** guesses.\n-# This command is currently marked as [**], which is [May have issues or doesn't function properly]. We encourage you to NOT WIN the game as even after winning the game, you will be spammed and notified with the 'Please send a number.' message. *I would* like to fix the code but I'm just a rookie at Python coding and just too lazy. -Cort"
+            f"## Guessing game has been started!\nPlease guess a number between **1-{max}.**\nYou have **{MAX_GUESSES}** guesses."
         )
 
         def check(m):
@@ -34,26 +87,28 @@ class Fun(commands.Cog):
 
         for i in range(MAX_GUESSES):
             try:
-                guess = await self.bot.wait_for("message", check=check, timeout=15)
+                msg = await self.bot.wait_for(
+                    "message", check=check, timeout=15
+                )
                 try:
-                    int(guess.content)
-                    if guess.content == str(number):
+                    val = int(msg.content)
+                    if val == number:
                         await ctx.send(
                             f"Congrats, you guessed it correctly! It took you **{i+1}** tries."
                         )
-                    elif guess.content >= str(number):
-                        await ctx.send(f"Lower!")
-                    elif guess.content <= str(number):
-                        await ctx.send(f"Higher!")
-                except:
-                    await ctx.send(
-                        "Please send a number.\n-# If you've already won the game and this message still being posted, please immediately let us know to restart the bot."
-                    )
+                        break
+                    elif val > number:
+                        await ctx.send("Lower!")
+                    else:
+                        await ctx.send("Higher!")
+                except ValueError:
+                    await ctx.send("Please send a valid number.")
             except asyncio.TimeoutError:
-                pass
+                await ctx.send("Timed out waiting for a guess!")
+                break
         else:
             await ctx.send(
-                f"Game over! You have ran out of tries.\n-# Remember, you only get **{MAX_GUESSES}** guesses!"
+                f"Game over! You ran out of tries. The number was **{number}**."
             )
 
     @commands.command(aliases=["choice"])
@@ -63,7 +118,9 @@ class Fun(commands.Cog):
         thinking = await ctx.send(":clock1: Thinking, please wait...")
         await asyncio.sleep(0.2)
         for i in range(4):
-            await thinking.edit(content=f":clock{i+1}: Thinking, please wait...")
+            await thinking.edit(
+                content=f":clock{i+1}: Thinking, please wait..."
+            )
             await asyncio.sleep(0.2)
         await ctx.send(choice)
 

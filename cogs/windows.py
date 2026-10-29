@@ -21,6 +21,8 @@ class Windows(commands.Cog):
     @staticmethod
     def get_battery_info():
         battery = psutil.sensors_battery()
+        if battery is None:
+            return None, None
         percent = battery.percent
         charging = battery.power_plugged
 
@@ -30,24 +32,30 @@ class Windows(commands.Cog):
     async def battery(self, ctx: commands.Context):
         percent, charging = self.get_battery_info()
 
-        if charging:
-            status = "charging"
-        else:
-            status = "not charging"
+        if percent is None:
+            embed = discord.Embed(
+                title="CortDB Host Battery Status",
+                description="No battery detected on this host system (likely running on a desktop or server).",
+                color=0xE06C75,
+            )
+            embed.set_footer(text="the battery is... lost media???")
+            return await ctx.send(embed=embed)
+
+        status = "charging" if charging else "not charging"
 
         embed = discord.Embed(
-            title="CortSiriGoogle PC Host Battery Status",
+            title="CortDB Host Battery Status",
             description=f"The battery percentage of this bot's host PC is currently at **`{percent}%`**, and it is currently **`{status}`**.",
             color=0x40A02B,
         )
         if percent == 100:
             embed.set_footer(text="We know the battery is full. Just shut the fuck up.")
         else:
-            embed.set_footer(text="Yes, if the battery is full, we know. Just shut up.")
+            embed.set_footer(text="The battery isn't full. Yet.")
         await ctx.send(embed=embed)
 
     @commands.hybrid_command(
-        description="Get CortSiriGoogle PC Client Info (this may or may not work depending on OS the host runs on)"
+        description="Get CortDB Host Info (windows)"
     )
     async def winfetch(self, ctx: commands.Context):
         # THIS COMMAND IS FOR WINDOWS ONLY!!!
