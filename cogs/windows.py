@@ -75,7 +75,7 @@ class Windows(commands.Cog):
         kernel_info = platform.release()
 
         embed = discord.Embed(
-            title="CortSiriGoogle PC Client Info",
+            title="CortDB Host Info",
             description=f"""
 ```
 Operating System: {os_info.system}
@@ -89,7 +89,7 @@ Memory: Available {memory_info.available / (1024 ** 3):.2f} GB / Total {memory_i
             color=0x66ABC6,
         )
         embed.set_footer(
-            text="To see battery info, do /battery. The battery command may not respond if the bot's PC host doesn't have one."
+            text="To see battery info, do /battery."
         )
         await ctx.reply(embed=embed, mention_author=False)
 

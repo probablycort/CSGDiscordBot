@@ -91,7 +91,7 @@ class Linux(commands.Cog):
         uptime = round(time.time() - psutil.boot_time())
 
         embed = discord.Embed(
-            title="CSGDiscordBot Linux Host Info",
+            title="CortDB Host Info",
             description=f"""     
 ```
 Operating System: {os_info.system}

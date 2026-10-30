@@ -1,8 +1,8 @@
 # CortSiriGoogle Discord Bot
-CortDB (formerly CortSiriGoogle), also known as CSGDiscordBot, is an experimental Discord bot based on Python, specifically made for the CortSiriGoogle Studios Discord server. It is currently part of a side project made by [CortSiriGoogle Studios](https://cortstudios.carrd.co/). The bot has some unique commands, statuses and more. The default prefix of this bot is `.`, and do `.help` for commands.
+CortDB, also known as CSGDiscordBot, is an experimental Python-based Discord bot created for the CortSiriGoogle Discord server as part of a [CortSiriGoogle Development](https://cortstudios.carrd.co/) side project. It features unique commands, custom statuses, and more. The default prefix is `.`. Type `.help` to view available commands.
 
 > [!NOTE]
-> CSGDiscordBot below v3.0 has been archived and can be found at https://github.com/probablycort/CSGArchivedDiscordBot.
+> CSGDiscordBot below v3.0 and statuses has been archived and can be found at https://github.com/probablycort/CSGArchivedDiscordBot.
 
 Developed by [@probablycort](https://github.com/probablycort/) and rewritten by [@searinminecraft](https://github.com/searinminecraft/)
 
@@ -35,13 +35,4 @@ Then sync app commands globally for them to show up:
 .sync global
 ```
 ## Configuring the bot
-### Prefix
-Configure the prefix of the bot at `bot.py`, on line 32.
-
-### Statuses
-Configure the bot's statuses by going to `statuses.py`.
-
-### Commands
-While commands (with prefix) and app commands are located under the `cogs` folder, the commands without prefix is located at `bot.py`, under line 162.
-> [!TIP]
-> Guide on how to add the commands with different types can be found at `base.py`, starts at line 17.
+You can now configure the prefix, statuses, and commands (without prefixes) of the bot in config.py!

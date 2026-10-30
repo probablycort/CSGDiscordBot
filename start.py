@@ -11,7 +11,7 @@ from aiohttp import ClientSession
 from dotenv import load_dotenv
 
 from bot import CSGDiscordBot
-from statuses import statuses
+from config import STATUSES
 
 
 async def main():
@@ -45,7 +45,7 @@ async def main():
 
         async with CSGDiscordBot(
             intents=intents,
-            statuses=statuses,
+            statuses=STATUSES,
             extensions=extensions,
             testing_guild=os.getenv("TEST_GUILD"),
             debug_mode=debug_mode,

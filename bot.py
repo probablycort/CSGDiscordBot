@@ -3,14 +3,24 @@ from discord.ext import commands
 from discord.ext import tasks
 
 import datetime
-import re
 import sys
 import logging
 import asyncio
 from itertools import cycle
 from typing import Iterable, SupportsInt, Optional
 
-from statuses import NORMAL_STATUSES, LYRICS, NORMAL_DELAY, LYRIC_DELAY
+from config import (
+    PREFIX,
+    VERSION,
+    NORMAL_STATUSES,
+    LYRICS,
+    NORMAL_DELAY,
+    LYRIC_DELAY,
+    STICKER_TRIGGERS,
+    TRACKER_WARNINGS,
+    check_battery_trigger,
+    get_match_response,
+)
 
 log = logging.getLogger("CSGDiscordBot")
 
@@ -30,24 +40,20 @@ class CSGDiscordBot(commands.Bot):
         self.debug_mode = debug_mode
         self.extensions_ = extensions
         self.start_time = discord.utils.utcnow()
-        
+
         # Dictionary to track active tracker warnings
         self.active_warnings = {}
-        
-        # Clean separation using Method 2 status lists
+
+        # Status cycles
         self.normal_statuses = cycle(NORMAL_STATUSES)
         self.lyric_statuses = cycle(LYRICS)
-        
+
         # Dynamically determine the last lyric line as the exit trigger
         self.last_lyric_line = LYRICS[-1] if LYRICS else None
         self.lyric_mode = False
 
-        self.battery_pattern = re.compile(
-            r"(?i)The battery is (fu(l|1|i|\||!)*|cort|empty|drained|low|gone)(\.)?"
-        )
-
         super().__init__(
-            command_prefix=".",
+            command_prefix=PREFIX,
             intents=intents,
             allowed_mentions=discord.AllowedMentions(
                 everyone=False, users=False, roles=False
@@ -94,16 +100,14 @@ class CSGDiscordBot(commands.Bot):
 
         if self.lyric_mode:
             status = next(self.lyric_statuses)
-            delay = LYRIC_DELAY  # Uses configurable delay from statuses.py
-            
-            # Exit lyric mode automatically after reaching the last lyric in LYRICS
+            delay = LYRIC_DELAY
+
             if status == self.last_lyric_line:
                 self.lyric_mode = False
         else:
             status = next(self.normal_statuses)
-            delay = NORMAL_DELAY  # Uses configurable delay from statuses.py
-            
-            # Enter lyric mode when hitting the trigger status
+            delay = NORMAL_DELAY
+
             if status == "...":
                 self.lyric_mode = True
 
@@ -139,7 +143,6 @@ class CSGDiscordBot(commands.Bot):
         self.on_command_error = self.handle_error
         self.tree.error(self.handle_error)
 
-        # Automatically load platform-specific cogs based on OS
         if self.platform == "win32":
             await self.load_extension("cogs.windows")
             log.info("Running on Windows. Loaded cogs.windows.")
@@ -167,74 +170,29 @@ class CSGDiscordBot(commands.Bot):
 
         content = message.content.lower()
 
-        if "girlcockx" in content:
-            girlcockx = self.get_sticker(1384139430067175495)
-            if girlcockx:
-                return await message.reply(stickers=[girlcockx], mention_author=False)
+        # Sticker triggers configured in config.py
+        for trigger, sticker_id in STICKER_TRIGGERS.items():
+            if trigger in content:
+                sticker = self.get_sticker(sticker_id)
+                if sticker:
+                    return await message.reply(stickers=[sticker], mention_author=False)
 
-        if "?si=" in content:
-            warning = await message.reply(
-                "## ⚠️ Your YouTube link contains a tracker parameter.\nPlease edit your message and remove everything after ? and the question mark itself.",
-                mention_author=False
-            )
-            self.active_warnings[message.id] = warning
-            return await self.process_commands(message)
+        # Tracker warnings configured in config.py
+        for tracker_param, warning_msg in TRACKER_WARNINGS.items():
+            if tracker_param in content:
+                warning = await message.reply(warning_msg, mention_author=False)
+                self.active_warnings[message.id] = warning
+                return await self.process_commands(message)
 
-        if "?a=" in content:
-            warning = await message.reply(
-                "## ⚠️ Your Twitter link contains a tracker parameter.\nPlease edit your message and remove everything after ? and the question mark itself.",
-                mention_author=False
-            )
-            self.active_warnings[message.id] = warning
-            return await self.process_commands(message)
+        # Battery pattern response configured in config.py
+        battery_response = check_battery_trigger(content)
+        if battery_response:
+            return await message.channel.send(battery_response)
 
-        phr = self.battery_pattern.search(content)
-        if phr:
-            return await message.channel.send("SHUT THE FUCK UP")
-
-        match content:
-            case "but it refused":
-                return await message.channel.send("https://i.redd.it/o1efjhddq2x21.jpg")
-            case "!barn":
-                return await message.channel.send(
-                    "https://tenor.com/view/barn-gif-19719443"
-                )
-            case "probably cort":
-                await message.channel.send(
-                    "https://media.discordapp.net/attachments/763430451217432589/793847564045647872/unknown.png?width=130&height=177"
-                )
-            case "cantaloupe":
-                await message.channel.send(
-                    "https://cdn.discordapp.com/attachments/1079702225774972958/1148636977265123500/lv_0_20230804133527.mp4"
-                )
-            case "🧱":
-                await message.channel.send("🧱")
-            case ":bricks:":
-                await message.channel.send("🧱")
-            case "<:pomni:1164212247866912889><:pomni:1164212247866912889><:pomni:1164212247866912889>":
-                await message.channel.send(
-                    "https://tenor.com/view/pomni-digitalcircus-digital-circus-the-amazing-digital-circus-tadc-gif-87641691478271811"
-                )
-            case "<:pomni:1164212247866912889> <:pomni:1164212247866912889> <:pomni:1164212247866912889>":
-                await message.channel.send(
-                    "https://tenor.com/view/pomni-digitalcircus-digital-circus-the-amazing-digital-circus-tadc-gif-87641691478271811"
-                )
-            case self.user.mention:
-                await message.channel.send(
-                    """# Hello there!
-My default prefix is `.` and cannot be changed. If you want to see commands that I can provide you with, do the `.help` command.
-However, if you want to do my commands in DMs, do my commands on my DM!
--# v3.0 | https://bit.ly/CSGDiscordBot
-"""
-                )
-            case "testwithoutprefix":
-                await message.channel.send(
-                    "```Command without prefix is functional.```"
-                )
-            case "ping":
-                await message.channel.send("Pong")
-            case _:
-                pass
+        # Match case responses configured in config.py
+        match_response = get_match_response(content, self.user.mention.lower())
+        if match_response:
+            await message.channel.send(match_response)
 
         await self.process_commands(message)
 
@@ -247,5 +205,5 @@ However, if you want to do my commands in DMs, do my commands on my DM!
                     await warning_msg.delete()
                 except discord.HTTPException:
                     pass
-                
+
                 del self.active_warnings[before.id]

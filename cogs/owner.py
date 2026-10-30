@@ -124,7 +124,7 @@ class Core(commands.Cog):
                 await ctx.send(f"## ✅ Message successfully sent to **{user}**!")
                 log.info("[LOG] %s sent a DM to %s: %s", ctx.author, user, content)
             except discord.Forbidden:
-                await ctx.send(f"## ❌ Could not DM **{user}**. \nThey likely have DMs disabled or have blocked the bot.")
+                await ctx.send(f"## ❌ Unable to DM **{user}**. \nThey likely have DMs disabled or have blocked the bot.")
             except Exception as e:
                 await ctx.send(f"## ❌ An error occurred: \n{e}")
 

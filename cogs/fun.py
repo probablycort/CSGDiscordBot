@@ -8,7 +8,7 @@ import asyncio
 import random
 from typing import TYPE_CHECKING
 
-from statuses import SONG_INFO, LYRICS, LYRIC_DELAY
+from config import SONG_INFO, LYRICS, LYRIC_DELAY
 
 if TYPE_CHECKING:
     from bot import CSGDiscordBot
@@ -108,7 +108,7 @@ class Fun(commands.Cog):
                 break
         else:
             await ctx.send(
-                f"Game over! You ran out of tries. The number was **{number}**."
+                f"## Game over!\nYou ran out of tries. The number was **{number}**."
             )
 
     @commands.command(aliases=["choice"])
