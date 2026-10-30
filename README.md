@@ -1,3 +1,5 @@
+![thumbnail](https://raw.githubusercontent.com/probablycort/CSGDiscordBot/refs/heads/main/CortDB_thumbnail.png)
+
 # CortSiriGoogle Discord Bot
 CortDB, also known as CSGDiscordBot, is an experimental Python-based Discord bot created for the CortSiriGoogle Discord server as part of a [CortSiriGoogle Development](https://cortstudios.carrd.co/) side project. It features unique commands, custom statuses, and more. The default prefix is `.`. Type `.help` to view available commands.
 
