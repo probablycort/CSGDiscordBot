@@ -45,7 +45,7 @@ STICKER_TRIGGERS = {
 }
 
 TRACKER_WARNINGS = {
-    "?si=": "## ⚠️ Your YouTube link contains a tracker parameter.\nPlease edit your message and remove everything after ? and the question mark itself.",
+    "?si=": "## ⚠️ Your YouTube/Spotify link contains a tracker parameter.\nPlease edit your message and remove everything after ? and the question mark itself.",
     "?a=": "## ⚠️ Your Twitter link contains a tracker parameter.\nPlease edit your message and remove everything after ? and the question mark itself."
 }
 
@@ -59,6 +59,12 @@ def check_battery_trigger(content: str) -> str | None:
     return None
 
 def get_match_response(content: str, user_mention: str) -> str | None:
+    # if "some word" in content:
+        # return "bot response"
+    # if content.endswith("some word"):
+        # return "bot response"
+    if "ity" in content:
+        return "is that a new verity variant"
     match content:
         # case "your command":
             # return "bot response"
