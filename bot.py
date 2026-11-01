@@ -4,6 +4,7 @@ from discord.ext import tasks
 
 import datetime
 import sys
+import os
 import logging
 import asyncio
 from itertools import cycle
@@ -163,6 +164,26 @@ class CSGDiscordBot(commands.Bot):
         log.info(" Discord Version " + discord.__version__)
         if self.debug_mode:
             log.info(" RUNNING IN DEBUG MODE ")
+
+        if os.path.exists("restart.txt"):
+            try:
+                with open("restart.txt", "r") as f:
+                    lines = f.read().splitlines()
+                    if len(lines) >= 2:
+                        channel_id = int(lines[0])
+                        message_id = int(lines[1])
+                        
+                        channel = self.get_channel(channel_id)
+                        if channel:
+                            try:
+                                msg = await channel.fetch_message(message_id)
+                                await msg.edit(content="✅ Bot has been restarted successfully and is back online!")
+                            except discord.NotFound:
+                                await channel.send("✅ Bot has been restarted successfully and is back online!")
+            except Exception as e:
+                log.error(f"Failed to send restart message: {e}")
+            finally:
+                os.remove("restart.txt")
 
     async def on_message(self, message: discord.Message):
         if message.author == self.user:

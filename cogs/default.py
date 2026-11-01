@@ -29,6 +29,16 @@ class Default(commands.Cog):
     async def echo(self, ctx: commands.Context, *, message):
         await ctx.send(message)
 
+    @commands.hybrid_command(description="Make me say something and delete your original message.")
+    @app_commands.describe(message="The message you want me to say")
+    async def hiddenecho(self, ctx: commands.Context, *, message: str):
+        if ctx.message:
+            try:
+                await ctx.message.delete()
+            except discord.HTTPException:
+                pass
+        await ctx.send(message)
+
     @commands.hybrid_command(description="Make me say something inside an embed.")
     @app_commands.describe(message="The message you want me to say")
     async def embedecho(self, ctx: commands.Context, *, message):
