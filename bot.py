@@ -199,9 +199,14 @@ class CSGDiscordBot(commands.Bot):
                     return await message.reply(stickers=[sticker], mention_author=False)
 
         # Tracker warnings configured in config.py
-        for tracker_param, warning_msg in TRACKER_WARNINGS.items():
+        for tracker_param, warning_data in TRACKER_WARNINGS.items():
             if tracker_param in content:
-                warning = await message.reply(warning_msg, mention_author=False)
+                embed = discord.Embed(
+                    title=warning_data["title"],
+                    description=warning_data["description"],
+                    color=warning_data["color"]
+                )
+                warning = await message.reply(embed=embed, mention_author=False)
                 self.active_warnings[message.id] = warning
                 return await self.process_commands(message)
 

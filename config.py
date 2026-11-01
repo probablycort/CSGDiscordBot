@@ -2,7 +2,7 @@ import re
 
 # ---------Bot prefix-----------
 PREFIX = "."
-VERSION = "4.0"
+VERSION = "4.0a"
 
 # ---------Statuses-----------
 
@@ -45,8 +45,16 @@ STICKER_TRIGGERS = {
 }
 
 TRACKER_WARNINGS = {
-    "?si=": "## ⚠️ Your YouTube/Spotify link contains a tracker parameter.\nPlease edit your message and remove everything after ? and the question mark itself.",
-    "?a=": "## ⚠️ Your Twitter link contains a tracker parameter.\nPlease edit your message and remove everything after ? and the question mark itself."
+    "?si=": {
+        "title": "⚠️ Your YouTube/Spotify link contains a tracking parameter! (`?si=`)",
+        "description": "Please edit your message and remove everything starting from `?` onwards.",
+        "color": 0xFEE75C 
+    },
+    "?a=": {
+        "title": "⚠️ Your Twitter link contains a tracking parameter! (`?a=`)",
+        "description": "Please edit your message and remove everything starting from `?` onwards.",
+        "color": 0xFEE75C
+    }
 }
 
 BATTERY_PATTERN = re.compile(
