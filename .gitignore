@@ -162,6 +162,8 @@ cython_debug/
 # Environment
 .env
 
+.vscode
+
 # Log files
 *.log
 

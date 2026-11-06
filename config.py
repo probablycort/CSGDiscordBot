@@ -1,5 +1,9 @@
 import re
 import discord
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # ---------Bot prefix-----------
 PREFIX = "."
@@ -66,11 +70,11 @@ SONG_INFO = {
 NORMAL_DELAY = 60
 LYRIC_DELAY = 5
 
-# Lavalink Node Configuration (Serenetia Public Node)
-LAVALINK_HOST = "lavalinkv4.serenetia.com"
-LAVALINK_PORT = 443
-LAVALINK_PASSWORD = "https://seretia.link/discord"
-LAVALINK_SECURE = True
+# Lavalink Settings, more can be found at https://freelavalink.serenetia.com/list
+LAVALINK_HOST = os.getenv("LAVALINK_HOST")
+LAVALINK_PORT = int(os.getenv("LAVALINK_PORT", "0"))
+LAVALINK_PASSWORD = os.getenv("LAVALINK_PASSWORD")
+LAVALINK_SECURE = os.getenv("LAVALINK_SECURE", "").lower() in ("true", "1", "yes")
 
 # ---------Commands without prefixes-----------
 
