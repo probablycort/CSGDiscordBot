@@ -69,32 +69,83 @@ class Fun(commands.Cog):
 
         await ctx.send(embed=embed)
 
+
     @commands.hybrid_command(aliases=["dice"], description="Roll a dice")
-    async def roll(self, ctx, max: int = 6):
-        number = random.randint(1, max)
+    @app_commands.describe(max_val="The maximum number to roll (default: 6)")
+    async def roll(self, ctx: commands.Context, max_val: int = 6):
+        number = random.randint(1, max_val)
         await ctx.send(f"You have rolled a **{number}**.")
 
-    @commands.command(aliases=["guessinggame", "startgame"])
-    async def guess(self, ctx, max: int = 100):
-        MAX_GUESSES = 15
-        number = random.randint(1, max)
+    @commands.hybrid_command(
+        name="8ball",
+        aliases=["eightball", "8b"],
+        description="Ask the magic 8-ball a question"
+    )
+    @app_commands.describe(question="The question you want to ask the 8-ball")
+    async def eight_ball(self, ctx: commands.Context, *, question: str):
+        # Add your custom responses to this list
+        responses = [
+            "It is certain",
+            "Without a doubt",
+            "Reply hazy, try again",
+            "Ask again later",
+            "Don't count on it",
+            "My reply is no",
+        ]
+
+        answer = random.choice(responses)
+
+        embed = discord.Embed(title="🎱 8-Ball", color=0x5865F2)
+        embed.add_field(name="Question", value=question, inline=False)
+        embed.add_field(name="Answer", value=answer, inline=False)
+
+        await ctx.reply(embed=embed, mention_author=False)
+
+    @commands.hybrid_command(
+        aliases=["guessinggame", "startgame"],
+        description="Start a number guessing game",
+    )
+    @app_commands.describe(
+        min_val="The minimum number in the range (default: 1)",
+        max_val="The maximum number in the range (default: 100)",
+        max_guesses="The maximum number of allowed guesses (default: 15)",
+    )
+    async def guess(
+        self,
+        ctx: commands.Context,
+        min_val: int = 1,
+        max_val: int = 100,
+        max_guesses: int = 15,
+    ):
+        """Start a number guessing game with custom ranges and guess limits."""
+        if min_val >= max_val:
+            return await ctx.send(
+                "❌ The minimum number must be strictly less than the maximum number!"
+            )
+
+        if max_guesses <= 0:
+            return await ctx.send("❌ Maximum guesses must be at least 1!")
+
+        number = random.randint(min_val, max_val)
         await ctx.send(
-            f"## Guessing game has been started!\nPlease guess a number between **1-{max}.**\nYou have **{MAX_GUESSES}** guesses."
+            f"## Guessing game started!\n"
+            f"Please guess a number between **{min_val}** and **{max_val}**.\n"
+            f"You have **{max_guesses}** guesses."
         )
 
-        def check(m):
-            return m.author == ctx.author and m.channel == ctx.message.channel
+        def check(m: discord.Message) -> bool:
+            return m.author == ctx.author and m.channel == ctx.channel
 
-        for i in range(MAX_GUESSES):
+        for i in range(max_guesses):
             try:
                 msg = await self.bot.wait_for(
-                    "message", check=check, timeout=15
+                    "message", check=check, timeout=30
                 )
                 try:
                     val = int(msg.content)
                     if val == number:
                         await ctx.send(
-                            f"Congrats, you guessed it correctly! It took you **{i+1}** tries."
+                            f"🎉 Congrats, you guessed it correctly! It took you **{i + 1}** tries."
                         )
                         break
                     elif val > number:
@@ -102,14 +153,15 @@ class Fun(commands.Cog):
                     else:
                         await ctx.send("Higher!")
                 except ValueError:
-                    await ctx.send("Please send a valid number.")
+                    await ctx.send("Please send a valid integer.")
             except asyncio.TimeoutError:
-                await ctx.send("Timed out waiting for a guess!")
+                await ctx.send("⏰ You ran out of time! Game over.")
                 break
         else:
             await ctx.send(
                 f"## Game over!\nYou ran out of tries. The number was **{number}**."
             )
+
 
     @commands.command(aliases=["choice"])
     async def choose(self, ctx, *, args):

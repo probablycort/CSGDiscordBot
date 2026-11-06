@@ -20,7 +20,7 @@ log = logging.getLogger("CSGDiscordBot")
 
 
 def restart_bot():
-    os.execv(sys.executable, ["python"] + sys.argv)
+    os.execv(sys.executable, [sys.executable] + sys.argv)
 
 
 # Helper functions to manage saved settings
@@ -136,7 +136,11 @@ class Core(commands.Cog):
     @commands.is_owner()
     @commands.command(hidden=True)
     async def restart(self, ctx: commands.Context):
-        msg = await ctx.reply("Restarting, please wait...")
+        msg = await ctx.reply(
+            "Restarting, please wait...\n"
+            "-# Check the bot's status or this message for any changes.\n"
+            "-# If you think it's stuck on \"Restarting\", it usually means an error occured on the host's side and refuses to start."
+        )
         await self.bot.change_presence(activity=discord.CustomActivity(name="Restarting..."))
         with open("restart.txt", "w") as f:
             f.write(f"{ctx.channel.id}\n{msg.id}")
@@ -161,7 +165,7 @@ class Core(commands.Cog):
             except Exception as e:
                 await ctx.send(f"❌ An error occurred: \n{e}")
 
-    @app_commands.checks.has_permissions(administrator=True)
+    @commands.has_permissions(administrator=True)
     @commands.hybrid_command(name="setlogchannel", description="Set the moderation log channel for this server")
     @app_commands.describe(channel="The text channel to send moderation logs to")
     async def setlogchannel(self, ctx: commands.Context, channel: discord.TextChannel):
@@ -174,7 +178,7 @@ class Core(commands.Cog):
         await ctx.reply(f"✅ Successfully set the moderation log channel to {channel.mention}!", ephemeral=True)
         log.info("[CONFIG] Moderation log channel set to %s (%d) in guild %s", channel.name, channel.id, ctx.guild.name)
 
-    @app_commands.checks.has_permissions(kick_members=True)
+    @commands.has_permissions(kick_members=True)
     @commands.hybrid_command(name="warn", description="Issue a warning to a server member")
     @app_commands.describe(member="The member to warn", reason="The reason for the warning")
     async def warn(self, ctx: commands.Context, member: discord.Member, *, reason: str = "No reason provided"):
@@ -193,7 +197,7 @@ class Core(commands.Cog):
         log.info("[MOD WARN] %s warned %s: %s", ctx.author, member, reason)
         await self.send_mod_log(ctx.guild, title="Member Warned", color=0xFEE75C, target=member, moderator=ctx.author, reason=reason)
 
-    @app_commands.checks.has_permissions(kick_members=True)
+    @commands.has_permissions(kick_members=True)
     @commands.hybrid_command(name="kick", description="Kick a member from the server")
     @app_commands.describe(member="The member to kick", reason="The reason for the kick")
     async def kick(self, ctx: commands.Context, member: discord.Member, *, reason: str = "No reason provided"):
@@ -216,7 +220,7 @@ class Core(commands.Cog):
         except discord.Forbidden:
             await ctx.reply("❌ I do not have permission to kick this member.")
 
-    @app_commands.checks.has_permissions(ban_members=True)
+    @commands.has_permissions(ban_members=True)
     @commands.hybrid_command(name="ban", description="Ban a user from the server")
     @app_commands.describe(user="The user to ban", reason="The reason for the ban")
     async def ban(self, ctx: commands.Context, user: discord.User, *, reason: str = "No reason provided"):

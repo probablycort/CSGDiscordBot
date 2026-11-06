@@ -50,10 +50,14 @@ class Linux(commands.Cog):
             embed.set_footer(text="Yes, if the battery is full, we know. Just shut up.")
         await ctx.send(embed=embed)
 
+
     @commands.hybrid_command(
         description="Get CortDB Host Info (linux)"
     )
     async def neofetch(self, ctx: commands.Context):
+        # THIS COMMAND IS FOR LINUX ONLY!!!
+        os_info = platform.uname()
+
         # OS / Distro info
         try:
             os_release = platform.freedesktop_os_release()
@@ -62,8 +66,6 @@ class Linux(commands.Cog):
             os_name = "Linux"
 
         kernel_info = platform.release()
-        node_name = platform.node()
-        architecture = platform.machine()
 
         # CPU info from /proc/cpuinfo for accurate neofetch-style naming
         cpu_info = "N/A"
@@ -92,9 +94,8 @@ class Linux(commands.Cog):
 
         embed = discord.Embed(
             title="CortDB Host Info",
-            description=f"""     
-```
-Operating System: {os_info.system}
+            description=f"""```
+Operating System: {os_name}
 Kernel: {kernel_info} ({os_info.version})
 Device Host Name: {os_info.node}
 Uptime: {uptime // 3600} hours, {(uptime % 3600) // 60} minutes

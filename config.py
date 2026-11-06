@@ -1,18 +1,37 @@
 import re
+import discord
 
 # ---------Bot prefix-----------
 PREFIX = "."
-VERSION = "4.0a"
+VERSION = "4.1"
 
 # ---------Statuses-----------
 
 NORMAL_STATUSES = (
     "bit.ly/CSGDiscordBot",
     f"v{VERSION} | .help",
-    "...",  # Triggers the lyric sequence
+    "Scientists reveal the Hi",
+    "the battery ISN'T FULL.",
+    "⚠️ Hi",
+    "I'm talking to you!",
+    "larp larp larp sahur",
+    "my owner is a dumbass and gave their id to discord for my verified app badge",
+    "lalala pipipi",
+    "Made with <3 by CortSiriGoogle Community",
+    "...", # Will trigger lyrics statuses. DO NOT REMOVE unless you do not want lyrics statuses.
 )
 
 LYRICS = (
+    '"..."',
+    '"So trace this line across the scene"',
+    '"And we can see"',
+    '"How it could be"',
+    '"My calloused fingers pick and place the pieces once beneath my feet"',
+    '"I count the ladybugs that land upon my cheek"',
+    '"So stay with me"',
+    '"My lucky piece"',
+    '"And send a sketch of fairer fortune out upon the passing breeze"',
+    '"..."',
     '"Between the verdant touch of green"',
     '"The dappled sunlight casts a crown on me"',
     '"And though I trip and fall"',
@@ -23,6 +42,16 @@ LYRICS = (
     '"In colors of acrylic"',
     '"To mix them on my palette"',
     '"The gallery of life yet lived is-"',
+    '"..."',
+    '"Left a corner of the canvas"',
+    '"Willfully unfinished, sketches on a page"',
+    '"So you can join in creation"',
+    '"Knowing you can make it if I walk away"',
+    '"The brush, the paint, it\'s all in its position"',
+    '"All the love and life that just needs definition"',
+    '"Will you take it with you when it\'s over"',
+    '"Lucky little clover."',
+    '🍀',
 )
 
 SONG_INFO = {
@@ -36,6 +65,12 @@ SONG_INFO = {
 # Change the status delay (in seconds)
 NORMAL_DELAY = 60
 LYRIC_DELAY = 5
+
+# Lavalink Node Configuration (Serenetia Public Node)
+LAVALINK_HOST = "lavalinkv4.serenetia.com"
+LAVALINK_PORT = 443
+LAVALINK_PASSWORD = "https://seretia.link/discord"
+LAVALINK_SECURE = True
 
 # ---------Commands without prefixes-----------
 
@@ -67,19 +102,23 @@ def check_battery_trigger(content: str) -> str | None:
     return None
 
 def get_match_response(content: str, user_mention: str) -> str | None:
+    
     # if "some word" in content:
         # return "bot response"
     # if content.endswith("some word"):
         # return "bot response"
-    if "ity" in content:
+    if "ity" in content and "verity" not in content:
         return "is that a new verity variant"
+    if "code rot" in content:
+        return "yep yep yep its code rot may god save us all"
+    if "!barn" in content:
+        return "https://tenor.com/view/barn-gif-19719443"
+
     match content:
         # case "your command":
             # return "bot response"
         case "but it refused":
             return "https://i.redd.it/o1efjhddq2x21.jpg"
-        case "!barn":
-            return "https://tenor.com/view/barn-gif-19719443"
         case "probably cort":
             return "https://media.discordapp.net/attachments/763430451217432589/793847564045647872/unknown.png?width=130&height=177"
         case "cantaloupe":
@@ -92,16 +131,22 @@ def get_match_response(content: str, user_mention: str) -> str | None:
             return "https://tenor.com/view/pomni-digitalcircus-digital-circus-the-amazing-digital-circus-tadc-gif-87641691478271811"
         case "<:pomni:1164212247866912889> <:pomni:1164212247866912889> <:pomni:1164212247866912889>":
             return "https://tenor.com/view/pomni-digitalcircus-digital-circus-the-amazing-digital-circus-tadc-gif-87641691478271811"
-        case mention if mention == user_mention:
-            return f"""# Hello there!
-My default prefix is `{PREFIX}` and cannot be changed. If you want to see commands that I can provide you with, do the `{PREFIX}help` command.
-However, if you want to do my commands in DMs, do my commands on my DM!
--# v{VERSION} | https://bit.ly/CSGDiscordBot
-"""
         case "testwithoutprefix":
             return "```Command without prefix is functional.```"
         case "ping":
             return "Pong"
+        case mention if mention == user_mention:
+            embed = discord.Embed(
+                title="👋 Hello there!",
+                description=(
+                    f"My default prefix is `{PREFIX}` and cannot be changed. "
+                    f"If you want to see commands that I can provide you with, do the `{PREFIX}help` command.\n\n"
+                    f"However, if you want to do my commands in DMs, do my commands on my DM!"
+                ),
+                color=0x5865F2
+            )
+            embed.set_footer(text=f"v{VERSION} | https://bit.ly/CSGDiscordBot")
+            return embed
         case _:
             return None
 

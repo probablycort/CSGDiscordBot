@@ -7,6 +7,7 @@ import sys
 import os
 import logging
 import asyncio
+from collections import OrderedDict
 from itertools import cycle
 from typing import Iterable, SupportsInt, Optional
 
@@ -43,7 +44,8 @@ class CSGDiscordBot(commands.Bot):
         self.start_time = discord.utils.utcnow()
 
         # Dictionary to track active tracker warnings
-        self.active_warnings = {}
+        self.active_warnings = OrderedDict()
+        self.MAX_WARNINGS = 200
 
         # Status cycles
         self.normal_statuses = cycle(NORMAL_STATUSES)
@@ -56,6 +58,7 @@ class CSGDiscordBot(commands.Bot):
         super().__init__(
             command_prefix=PREFIX,
             intents=intents,
+            help_command=None,
             allowed_mentions=discord.AllowedMentions(
                 everyone=False, users=False, roles=False
             ),
@@ -196,7 +199,8 @@ class CSGDiscordBot(commands.Bot):
             if trigger in content:
                 sticker = self.get_sticker(sticker_id)
                 if sticker:
-                    return await message.reply(stickers=[sticker], mention_author=False)
+                    await message.reply(stickers=[sticker], mention_author=False)
+                    break
 
         # Tracker warnings configured in config.py
         for tracker_param, warning_data in TRACKER_WARNINGS.items():
@@ -207,19 +211,27 @@ class CSGDiscordBot(commands.Bot):
                     color=warning_data["color"]
                 )
                 warning = await message.reply(embed=embed, mention_author=False)
+                
+                # Store warning and enforce max capacity limit
                 self.active_warnings[message.id] = warning
-                return await self.process_commands(message)
+                if len(self.active_warnings) > self.MAX_WARNINGS:
+                    self.active_warnings.popitem(last=False)  # Removes the oldest stored warning
+                break
 
         # Battery pattern response configured in config.py
         battery_response = check_battery_trigger(content)
         if battery_response:
-            return await message.channel.send(battery_response)
+            await message.channel.send(battery_response)
 
         # Match case responses configured in config.py
         match_response = get_match_response(content, self.user.mention.lower())
         if match_response:
-            await message.channel.send(match_response)
+            if isinstance(match_response, discord.Embed):
+                await message.reply(embed=match_response, mention_author=False)
+            else:
+                await message.channel.send(match_response)
 
+        # ALWAYS execute commands at the end of on_message
         await self.process_commands(message)
 
     async def on_message_edit(self, before: discord.Message, after: discord.Message):
