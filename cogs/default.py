@@ -205,11 +205,11 @@ class Default(commands.Cog):
             title_type = "Avatar"
 
         embed = discord.Embed(
-            title=f"{target.display_name}'s {title_type}",
+            title=f"@{target.name}'s {title_type}",
             color=0x5865F2
         )
         embed.set_image(url=avatar_url)
-        embed.set_footer(text=f"Requested by {ctx.author.display_name}")
+        embed.set_footer(text=f"Requested by @{ctx.author.name}")
 
         await ctx.reply(embed=embed, mention_author=False)
 
@@ -243,14 +243,14 @@ class Default(commands.Cog):
             banner_url = full_user.banner.url
 
         if not banner_url:
-            return await ctx.reply(f"❌ **{target.display_name}** does not have a banner set.", mention_author=False)
+            return await ctx.reply(f"❌ **@{target.name}** does not have a banner set.", mention_author=False)
 
         embed = discord.Embed(
-            title=f"{target.display_name}'s {title_type}",
+            title=f"{target.name}'s {title_type}",
             color=0x5865F2
         )
         embed.set_image(url=banner_url)
-        embed.set_footer(text=f"Requested by {ctx.author.display_name}")
+        embed.set_footer(text=f"Requested by {ctx.author.name}")
 
         await ctx.reply(embed=embed, mention_author=False)
 
