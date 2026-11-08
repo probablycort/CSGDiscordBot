@@ -36,7 +36,7 @@ async def main():
     discord.utils.setup_logging(formatter=formatter)
 
     async with ClientSession():
-        extensions = ["owner", "fun", "default", "music"]
+        extensions = ["owner", "guild", "fun", "default", "music", "birthday"]
 
         debug_mode = os.getenv("DEBUG_MODE") == "1"
 

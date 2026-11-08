@@ -7,7 +7,7 @@ load_dotenv()
 
 # ---------Bot prefix-----------
 PREFIX = "."
-VERSION = "4.1"
+VERSION = "4.2"
 
 # ---------Statuses-----------
 

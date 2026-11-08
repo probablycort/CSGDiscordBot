@@ -4,6 +4,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
+import cowsay
 import asyncio
 import random
 from typing import TYPE_CHECKING
@@ -175,6 +176,24 @@ class Fun(commands.Cog):
             )
             await asyncio.sleep(0.2)
         await ctx.send(choice)
+
+    @commands.hybrid_command(
+        name="cowsay",
+        aliases=["cow"],
+        description="Make an ASCII cow speak your message"
+    )
+    @app_commands.describe(message="The message for the cow to say")
+    async def cowsay_cmd(self, ctx: commands.Context, *, message: str):
+        """Make an ASCII cow speak your message."""
+        cow_output = cowsay.get_output_string("cow", message)
+        
+        embed = discord.Embed(
+            title="Cowsay",
+            description=f"```\n{cow_output}\n```",
+            color=0x5865F2
+        )
+        
+        await ctx.send(embed=embed)
 
 
 async def setup(bot: CSGDiscordBot):

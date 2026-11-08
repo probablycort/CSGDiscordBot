@@ -43,6 +43,10 @@ class CSGDiscordBot(commands.Bot):
         self.extensions_ = extensions
         self.start_time = discord.utils.utcnow()
 
+        # Ensure required intents are explicitly enabled
+        intents.message_content = True
+        intents.voice_states = True
+
         # Dictionary to track active tracker warnings
         self.active_warnings = OrderedDict()
         self.MAX_WARNINGS = 200
