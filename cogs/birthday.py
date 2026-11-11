@@ -10,7 +10,9 @@ from cogs.guild import Guild
 
 
 class Birthday(commands.Cog):
-    """Cog for storing user birthdays, grouped under /birthday, running on server-configured timezones."""
+    """[EXPERIMENTAL, MAY NOT WORK] Cog for storing user birthdays, grouped under /birthday, running on server-configured timezones.
+    Alias for this category is `.bd`.
+    """
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot

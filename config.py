@@ -7,7 +7,7 @@ load_dotenv()
 
 # ---------Bot prefix-----------
 PREFIX = "."
-VERSION = "4.2"
+VERSION = "4.2a"
 
 # ---------Statuses-----------
 
@@ -15,6 +15,7 @@ NORMAL_STATUSES = (
     "bit.ly/CSGDiscordBot",
     f"v{VERSION} | .help",
     "Scientists reveal the Hi",
+    "cort stinky",
     "the battery ISN'T FULL.",
     "⚠️ Hi",
     "I'm talking to you!",

@@ -5,6 +5,7 @@ from discord import app_commands
 from discord.ext import commands, tasks
 import wavelink
 import aiohttp
+import asyncio
 from typing import Optional, Literal
 
 from config import LAVALINK_HOST, LAVALINK_PORT, LAVALINK_PASSWORD, LAVALINK_SECURE
@@ -150,7 +151,9 @@ class MusicControlsView(discord.ui.View):
 
 
 class Music(commands.Cog):
-    """Music player commands powered by Wavelink & Lavalink, organized under /music."""
+    """Music player commands powered by Wavelink & Lavalink, organized under /music.
+    Alias for this category is `.m`.
+    """
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -164,9 +167,11 @@ class Music(commands.Cog):
         )
         await wavelink.Pool.connect(nodes=[node], client=self.bot, cache_capacity=100)
         self.check_inactivity.start()
+        self.idle_node_refresh.start()
 
     def cog_unload(self):
         self.check_inactivity.cancel()
+        self.idle_node_refresh.cancel()
 
     @tasks.loop(minutes=1.0)
     async def check_inactivity(self):
@@ -186,6 +191,48 @@ class Music(commands.Cog):
                     except discord.HTTPException:
                         pass
 
+    @tasks.loop(hours=3)
+    async def idle_node_refresh(self):
+        """Checks every 3 hours if the bot is idle everywhere, then reconnects the Lavalink node."""
+        await asyncio.sleep(3 * 3600)
+
+        active_vcs = [g for g in self.bot.guilds if g.voice_client is not None]
+        if active_vcs:
+            return
+
+        print("💤 Bot is idle across all guilds. Refreshing Lavalink node connection...")
+        
+        try:
+            uri = f"https://{LAVALINK_HOST}" if LAVALINK_SECURE else f"http://{LAVALINK_HOST}:{LAVALINK_PORT}"
+            node = wavelink.Node(
+                uri=uri,
+                password=LAVALINK_PASSWORD
+            )
+            await wavelink.Pool.connect(nodes=[node], client=self.bot, cache_capacity=100)
+            print("✅ Successfully reconnected Lavalink node during idle period.")
+        except Exception as e:
+            print(f"❌ Failed to reconnect Lavalink node during idle refresh: {e}")
+
+    @idle_node_refresh.before_loop
+    async def before_idle_refresh(self):
+        await self.bot.wait_until_ready()
+
+    async def robust_search(self, query: str) -> wavelink.Search | None:
+        """Tries searching with different prefixes/formats as a fallback for unpredictable public nodes."""
+        if query.startswith("http"):
+            variants = [query]
+        else:
+            variants = [query, f"ytsearch:{query}", f"ytmsearch:{query}"]
+
+        for variant in variants:
+            try:
+                tracks: wavelink.Search = await wavelink.Playable.search(variant)
+                if tracks:
+                    return tracks
+            except Exception:
+                continue
+        return None
+
     @commands.Cog.listener()
     async def on_wavelink_node_ready(self, payload: wavelink.NodeReadyEventPayload):
         print(f"✅ Connected to Lavalink Node: {payload.node.identifier}")
@@ -197,33 +244,41 @@ class Music(commands.Cog):
         if not player:
             return
 
-        if player.queue.mode == wavelink.QueueMode.loop:
-            await player.play(payload.track)
-            return
+        try:
+            if player.queue.mode == wavelink.QueueMode.loop:
+                await player.play(payload.track)
+                return
 
-        if player.queue.is_empty:
+            if player.queue.is_empty:
+                if hasattr(player, "home") and player.home:
+                    try:
+                        await player.home.send("⏹️ Queue has finished! No more tracks left to play.")
+                    except discord.HTTPException:
+                        pass
+                return
+
+            next_track = await player.queue.get_wait()
+            await player.play(next_track)
+
             if hasattr(player, "home") and player.home:
                 try:
-                    await player.home.send("⏹️ Queue has finished! No more tracks left to play.")
+                    embed = discord.Embed(
+                        title="🎶 Now Playing",
+                        description=f"[{next_track.title}]({next_track.uri}) by **{next_track.author}**",
+                        color=0x5865F2
+                    )
+                    if next_track.artwork:
+                        embed.set_thumbnail(url=next_track.artwork)
+                    await player.home.send(embed=embed)
                 except discord.HTTPException:
                     pass
-            return
-
-        next_track = await player.queue.get_wait()
-        await player.play(next_track)
-
-        if hasattr(player, "home") and player.home:
-            try:
-                embed = discord.Embed(
-                    title="🎶 Now Playing",
-                    description=f"[{next_track.title}]({next_track.uri}) by **{next_track.author}**",
-                    color=0x5865F2
-                )
-                if next_track.artwork:
-                    embed.set_thumbnail(url=next_track.artwork)
-                await player.home.send(embed=embed)
-            except discord.HTTPException:
-                pass
+        except Exception as e:
+            print(f"⚠️ Lavalink node rate limit or error during track end handling: {e}")
+            if hasattr(player, "home") and player.home:
+                try:
+                    await player.home.send("⚠️ The public Lavalink node hit a rate limit (`429`) or error while trying to play the next track.")
+                except discord.HTTPException:
+                    pass
 
     def format_millis(self, millis: int) -> str:
         """Helper to format milliseconds into MM:SS or HH:MM:SS format."""
@@ -284,8 +339,15 @@ class Music(commands.Cog):
         return embed
 
     def build_nowplaying_embed(self, player: wavelink.Player) -> discord.Embed:
-        """Constructs the Embed representation of the currently playing track."""
+        """Constructs the Embed representation of the currently playing track safely."""
         track = player.current
+        if not track:
+            return discord.Embed(
+                title="🎶 Now Playing",
+                description="Nothing is currently playing.",
+                color=0x5865F2
+            )
+
         position = player.position
         duration = track.length
 
@@ -439,18 +501,15 @@ class Music(commands.Cog):
         if not ctx.author.voice or not ctx.author.voice.channel:
             return await ctx.reply("❌ You must be connected to a voice channel to use this command.", mention_author=False)
 
-        search_query = query if query.startswith("http") else f"ytsearch:{query}"
+        # Defer immediately to prevent Discord's 3-second interaction timeout
+        if ctx.interaction:
+            await ctx.interaction.response.defer()
+        else:
+            await ctx.typing()
 
         try:
-            tracks: wavelink.Search = await wavelink.Playable.search(search_query)
-        except Exception as e:
-            error_message = str(e).lower()
-            if any(keyword in error_message for keyword in ["not supported", "disabled", "plugin", "manager", "unsupported"]):
-                return await ctx.reply(
-                    "❌ **Text searching is disabled on this public Lavalink node.** "
-                    "The node operator has turned off search plugins. Please use a direct URL with `.music play <URL>` instead!",
-                    mention_author=False
-                )
+            tracks = await self.robust_search(query)
+        except Exception:
             tracks = None
 
         if not tracks:
@@ -481,6 +540,12 @@ class Music(commands.Cog):
         if not ctx.author.voice or not ctx.author.voice.channel:
             return await ctx.reply("❌ You must be connected to a voice channel to use this command.", mention_author=False)
 
+        # Defer immediately to prevent Discord's 3-second interaction timeout (Error 10062)
+        if ctx.interaction:
+            await ctx.interaction.response.defer()
+        else:
+            await ctx.typing()
+
         voice_channel = ctx.author.voice.channel
         player: wavelink.Player = ctx.voice_client
 
@@ -502,9 +567,9 @@ class Music(commands.Cog):
         if not audio_url:
             if not query:
                 return await ctx.reply("❌ Please provide a search query, URL, or upload an audio file!", mention_author=False)
-            audio_url = query if query.startswith("http") else f"ytsearch:{query}"
+            audio_url = query
 
-        tracks: wavelink.Search = await wavelink.Playable.search(audio_url)
+        tracks = await self.robust_search(audio_url)
         if not tracks:
             return await ctx.reply(f"❌ Could not find or load tracks for `{query or 'uploaded file'}`.", mention_author=False)
 
@@ -596,6 +661,11 @@ class Music(commands.Cog):
 
     @music_group.command(name="stop", description="Stops music and disconnects the bot from voice")
     async def stop(self, ctx: commands.Context):
+        if ctx.interaction:
+            await ctx.interaction.response.defer()
+        else:
+            await ctx.typing()
+
         player: wavelink.Player = ctx.voice_client
         if not player:
             return await ctx.reply("❌ The bot is not in a voice channel.", mention_author=False)
@@ -603,7 +673,7 @@ class Music(commands.Cog):
         player.queue.clear()
         await player.disconnect()
         await ctx.reply("⏹️ Stopped playback and left the voice channel.", mention_author=False)
-
+        
     @music_group.command(name="remove", description="Remove a specific track from the queue by position")
     @app_commands.describe(index="The 1-based index position of the track in the queue")
     async def remove(self, ctx: commands.Context, index: int):
@@ -639,9 +709,14 @@ class Music(commands.Cog):
         player.queue.clear()
         await ctx.reply("🧹 Cleared all tracks from the queue.", mention_author=False)
 
-    @music_group.command(name="volume", description="Set or check player volume (1 to 100)")
+    @music_group.command(name="volume", aliases=["vol"], description="Set or check player volume (1 to 100)")
     @app_commands.describe(volume="Volume level from 1 to 100")
     async def volume(self, ctx: commands.Context, volume: Optional[int] = None):
+        if ctx.interaction:
+            await ctx.interaction.response.defer()
+        else:
+            await ctx.typing()
+
         player: wavelink.Player = ctx.voice_client
         if not player:
             return await ctx.reply("❌ The bot is not in a voice channel.", mention_author=False)
@@ -682,28 +757,34 @@ class Music(commands.Cog):
         await ctx.reply("🔄 Replaying current track from the beginning.", mention_author=False)
 
     # Short aliases defined as root prefix commands for convenience
-    @commands.command(name="p", hidden=True)
+    @commands.command(name="p", aliases=["play"], hidden=True)
     async def play_alias(self, ctx: commands.Context, *, query: Optional[str] = None):
+        ctx.command = self.play
         await self.play(ctx, query=query)
 
-    @commands.command(name="s", hidden=True)
+    @commands.command(name="s", aliases=["skip"], hidden=True)
     async def skip_alias(self, ctx: commands.Context):
+        ctx.command = self.skip
         await self.skip(ctx)
 
-    @commands.command(name="q", hidden=True)
+    @commands.command(name="q", aliases=["queue"], hidden=True)
     async def queue_alias(self, ctx: commands.Context):
+        ctx.command = self.queue
         await self.queue(ctx)
 
     @commands.command(name="np", hidden=True)
     async def nowplaying_alias(self, ctx: commands.Context):
+        ctx.command = self.nowplaying
         await self.nowplaying(ctx)
 
     @commands.command(name="vol", hidden=True)
     async def volume_alias(self, ctx: commands.Context, volume: Optional[int] = None):
+        ctx.command = self.volume
         await self.volume(ctx, volume=volume)
 
     @commands.command(name="rm", hidden=True)
     async def remove_alias(self, ctx: commands.Context, index: int):
+        ctx.command = self.remove
         await self.remove(ctx, index=index)
 
 

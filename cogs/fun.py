@@ -20,7 +20,7 @@ class Fun(commands.Cog):
         self.bot: CSGDiscordBot = bot
 
     @commands.hybrid_command(
-        aliases=["status", "lyrics"],
+        aliases=["status"],
         description="Displays info about the status lyric sequence",
     )
     async def song(self, ctx: commands.Context):

@@ -241,7 +241,7 @@ class Default(commands.Cog):
                 return await ctx.reply(embed=embed, mention_author=False)
 
             cmd = self.bot.get_command(query)
-            if cmd and not cmd.hidden:
+            if cmd:
                 desc = cmd.help or cmd.short_doc or cmd.description or "No description provided."
                 embed = discord.Embed(
                     title=f"Command: {prefix}{cmd.qualified_name}",
