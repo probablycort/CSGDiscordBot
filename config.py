@@ -16,6 +16,9 @@ NORMAL_STATUSES = (
     f"v{VERSION} | .help",
     "Scientists reveal the Hi",
     "cort stinky",
+    "hey its me its cority, ask me anything",
+    "whats the capital of france",
+    "oh oui oui oui, it is paris, merci!",
     "the battery ISN'T FULL.",
     "⚠️ Hi",
     "I'm talking to you!",
@@ -101,17 +104,32 @@ BATTERY_PATTERN = re.compile(
     r"(?i)The battery is (fu(l|1|i|\||!)*|cort|empty|drained|low|gone)(\.)?"
 )
 
-def check_battery_trigger(content: str) -> str | None:
+def check_battery_trigger(content: str, prefixless_enabled: bool = True) -> str | None:
+    if not prefixless_enabled:
+        return None
     if BATTERY_PATTERN.search(content):
         return "SHUT THE FUCK UP"
     return None
 
-def get_match_response(content: str, user_mention: str) -> str | None:
-    
-    # if "some word" in content:
-        # return "bot response"
-    # if content.endswith("some word"):
-        # return "bot response"
+def get_match_response(content: str, user_mention: str, prefixless_enabled: bool = True) -> str | None:
+    # Mention check should ALWAYS work regardless of the prefixless setting
+    if content == user_mention:
+        embed = discord.Embed(
+            title="👋 Hello there!",
+            description=(
+                f"My default prefix is `{PREFIX}` and cannot be changed. "
+                f"If you want to see commands that I can provide you with, do the `{PREFIX}help` command.\n\n"
+                f"However, if you want to do my commands in DMs, do my commands on my DM!"
+            ),
+            color=0x5865F2
+        )
+        embed.set_footer(text=f"v{VERSION} | https://bit.ly/CSGDiscordBot")
+        return embed
+
+    # If prefixless commands are disabled for this server, ignore all other triggers
+    if not prefixless_enabled:
+        return None
+
     if "ity" in content and "verity" not in content:
         return "is that a new verity variant"
     if "code rot" in content:
@@ -140,18 +158,6 @@ def get_match_response(content: str, user_mention: str) -> str | None:
             return "```Command without prefix is functional.```"
         case "ping":
             return "Pong"
-        case mention if mention == user_mention:
-            embed = discord.Embed(
-                title="👋 Hello there!",
-                description=(
-                    f"My default prefix is `{PREFIX}` and cannot be changed. "
-                    f"If you want to see commands that I can provide you with, do the `{PREFIX}help` command.\n\n"
-                    f"However, if you want to do my commands in DMs, do my commands on my DM!"
-                ),
-                color=0x5865F2
-            )
-            embed.set_footer(text=f"v{VERSION} | https://bit.ly/CSGDiscordBot")
-            return embed
         case _:
             return None
 

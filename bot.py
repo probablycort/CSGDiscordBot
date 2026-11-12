@@ -23,6 +23,7 @@ from config import (
     check_battery_trigger,
     get_match_response,
 )
+from cogs.guild import Guild
 
 log = logging.getLogger("CSGDiscordBot")
 
@@ -222,13 +223,17 @@ class CSGDiscordBot(commands.Bot):
                     self.active_warnings.popitem(last=False)  # Removes the oldest stored warning
                 break
 
-        # Battery pattern response configured in config.py
-        battery_response = check_battery_trigger(content)
+        # Check server-level prefixless toggle status
+        guild_id = message.guild.id if message.guild else None
+        prefixless_enabled = Guild.is_prefixless_enabled(guild_id)
+
+        # Battery pattern response configured in config.py (respects prefixless toggle)
+        battery_response = check_battery_trigger(content, prefixless_enabled=prefixless_enabled)
         if battery_response:
             await message.channel.send(battery_response)
 
-        # Match case responses configured in config.py
-        match_response = get_match_response(content, self.user.mention.lower())
+        # Match case responses configured in config.py (respects prefixless toggle)
+        match_response = get_match_response(content, self.user.mention.lower(), prefixless_enabled=prefixless_enabled)
         if match_response:
             if isinstance(match_response, discord.Embed):
                 await message.reply(embed=match_response, mention_author=False)

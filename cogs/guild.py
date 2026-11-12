@@ -49,10 +49,15 @@ class Guild(commands.Cog):
                 """
                 CREATE TABLE IF NOT EXISTS server_settings (
                     guild_id INTEGER PRIMARY KEY,
-                    timezone TEXT DEFAULT 'Asia/Kuala_Lumpur'
+                    timezone TEXT DEFAULT 'Asia/Kuala_Lumpur',
+                    prefixless_enabled INTEGER DEFAULT 1
                 )
                 """
             )
+            try:
+                cursor.execute("ALTER TABLE server_settings ADD COLUMN prefixless_enabled INTEGER DEFAULT 1")
+            except sqlite3.OperationalError:
+                pass
             conn.commit()
 
     @staticmethod
@@ -71,6 +76,19 @@ class Guild(commands.Cog):
             return pytz.timezone(tz_str)
         except Exception:
             return timezone(timedelta(hours=8))
+
+    @staticmethod
+    def is_prefixless_enabled(guild_id: Optional[int], db_path: str = "bot_settings.db") -> bool:
+        """Static helper to check if prefixless commands are enabled for a server."""
+        if not guild_id:
+            return True
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT prefixless_enabled FROM server_settings WHERE guild_id = ?", (guild_id,))
+            row = cursor.fetchone()
+        if row is not None and row[0] is not None:
+            return bool(row[0])
+        return True
 
     async def send_mod_log(self, guild: discord.Guild, title: str, color: int, target, moderator: discord.abc.User, reason: str):
         settings = load_settings()
@@ -119,6 +137,39 @@ class Guild(commands.Cog):
             conn.commit()
 
         await ctx.reply(f"🌍 Server timezone successfully updated to **{timezone_str}**!", mention_author=False)
+
+    @commands.hybrid_command(name="prefixless", description="Enable or disable prefixless trigger commands - ADMIN / BOT OWNER ONLY")
+    @app_commands.describe(status="Choose whether to enable or disable prefixless commands")
+    async def prefixless(self, ctx: commands.Context, status: Optional[bool] = None):
+        """Enables or disables prefixless message trigger responses in this server."""
+        if ctx.guild:
+            is_owner = await self.bot.is_owner(ctx.author)
+            is_guild_admin = ctx.author.id == ctx.guild.owner_id or ctx.author.guild_permissions.administrator
+            if not is_owner and not is_guild_admin:
+                return await ctx.reply("❌ You must be a server administrator or the bot owner to use this command.", mention_author=False)
+        else:
+            is_owner = await self.bot.is_owner(ctx.author)
+            if not is_owner:
+                return await ctx.reply("❌ This command can only be used in a server by an administrator.", mention_author=False)
+
+        guild_id = ctx.guild.id
+        current_status = self.is_prefixless_enabled(guild_id, self.db_path)
+        new_status = status if status is not None else not current_status
+
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO server_settings (guild_id, prefixless_enabled)
+                VALUES (?, ?)
+                ON CONFLICT(guild_id) DO UPDATE SET prefixless_enabled = excluded.prefixless_enabled
+                """,
+                (guild_id, int(new_status))
+            )
+            conn.commit()
+
+        state_str = "**enabled**" if new_status else "**disabled**"
+        await ctx.reply(f"✅ Prefixless trigger commands have been {state_str} for this server.", mention_author=False)
 
     @commands.has_permissions(manage_emojis=True)
     @commands.command()
