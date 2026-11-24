@@ -10,10 +10,30 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional
 from typing import TYPE_CHECKING
 
-from config import VERSION
+from config import VERSION, PREFIX
 
 if TYPE_CHECKING:
     from bot import CSGDiscordBot
+
+
+def get_cog_command_count(cog) -> int:
+    """Recursively counts all non-hidden commands and subcommands in a cog."""
+    count = 0
+    for cmd in cog.get_commands():
+        if cmd.hidden:
+            continue
+        if isinstance(cmd, commands.Group):
+            for sub in cmd.commands:
+                if not sub.hidden:
+                    if isinstance(sub, commands.Group):
+                        for subsub in sub.commands:
+                            if not subsub.hidden:
+                                count += 1
+                    else:
+                        count += 1
+        else:
+            count += 1
+    return count
 
 
 class HelpSelect(discord.ui.Select):
@@ -24,7 +44,7 @@ class HelpSelect(discord.ui.Select):
 
         options = [
             discord.SelectOption(
-                label="🏠 Main Overview",
+                label="Main Overview",
                 description="Return to the main help menu overview",
                 value="main"
             )
@@ -35,8 +55,7 @@ class HelpSelect(discord.ui.Select):
             cog = bot.get_cog(cog_name)
             if not cog:
                 continue
-            cmds = [c for c in cog.get_commands() if not c.hidden]
-            if cmds:
+            if get_cog_command_count(cog) > 0:
                 # Use cog docstring/description if set, fallback otherwise
                 desc = (cog.description or f"View commands under {cog_name}").strip()
                 if len(desc) > 100:
@@ -51,7 +70,7 @@ class HelpSelect(discord.ui.Select):
                 )
 
         # Check for uncategorized/general commands
-        uncategorized = [c for c in bot.commands if c.cog is None and not c.hidden]
+        uncategorized = [c for c in self.bot.commands if c.cog is None and not c.hidden]
         if uncategorized:
             options.append(
                 discord.SelectOption(
@@ -80,7 +99,7 @@ class HelpSelect(discord.ui.Select):
         if selected == "General":
             cmds = [c for c in self.bot.commands if c.cog is None and not c.hidden]
             embed = discord.Embed(
-                title="⚙️ General Commands",
+                title="General Commands",
                 description=f"Current Prefix: `{self.prefix}`",
                 color=0x5865F2,
             )
@@ -91,13 +110,14 @@ class HelpSelect(discord.ui.Select):
                     value=desc,
                     inline=False,
                 )
-            embed.set_footer(text=f"v{VERSION} | OS: {self.os_label}")
+            embed.set_footer(text=f"v{VERSION} | Total commands for General category: {len(cmds)}")
             return await interaction.followup.edit_message(interaction.message.id, embed=embed, view=self.view)
 
         cog = self.bot.get_cog(selected)
         if cog:
+            count = get_cog_command_count(cog)
             embed = discord.Embed(
-                title=f"⚙️ {cog.qualified_name} Commands",
+                title=f"{cog.qualified_name} Commands",
                 description=f"Current Prefix: `{self.prefix}`\n{cog.description or 'No category description provided.'}",
                 color=0x5865F2,
             )
@@ -120,7 +140,7 @@ class HelpSelect(discord.ui.Select):
                         value=desc,
                         inline=False,
                     )
-            embed.set_footer(text=f"v{VERSION} | OS: {self.os_label}")
+            embed.set_footer(text=f"v{VERSION} | Total commands for {cog.qualified_name} category: {count}")
             await interaction.followup.edit_message(interaction.message.id, embed=embed, view=self.view)
 
 
@@ -140,8 +160,7 @@ class HelpView(discord.ui.View):
             title="CortDB Command Help",
             description=(
                 f"Commands start with `/` or `{self.prefix}` and the prefix can only be changed by the bot host.\n"
-                f"This bot is currently hosted on **{self.os_label}**.\n\n"
-                f"Select a category from the dropdown menu below to view specific commands."
+                f"This bot is currently hosted on `{self.os_label}`."
             ),
             color=0x5865F2,
         )
@@ -151,13 +170,13 @@ class HelpView(discord.ui.View):
             cog = self.bot.get_cog(cog_name)
             if not cog:
                 continue
-            cmds = [c for c in cog.get_commands() if not c.hidden]
-            if cmds:
-                categories_summary.append(f"• **{cog_name}** (`{len(cmds)} commands`)")
+            count = get_cog_command_count(cog)
+            if count > 0:
+                categories_summary.append(f"• **{cog_name}**: `{count} commands`")
 
         uncategorized = [c for c in self.bot.commands if c.cog is None and not c.hidden]
         if uncategorized:
-            categories_summary.append(f"• **General** (`{len(uncategorized)} commands`)")
+            categories_summary.append(f"• **General**: `{len(uncategorized)} commands`")
 
         if categories_summary:
             embed.add_field(
@@ -167,7 +186,7 @@ class HelpView(discord.ui.View):
             )
 
         embed.set_footer(
-            text=f"v{VERSION} | Total Commands: {len(self.bot.commands)}"
+            text=f"Select a category from the dropdown menu below to view specific commands.\nv{VERSION} | Total Commands: {len(self.bot.commands)}"
         )
         return embed
 
@@ -202,15 +221,16 @@ class Default(commands.Cog):
     )
     async def help(self, ctx: commands.Context, *, query: Optional[str] = None):
         """Shows help information for commands and categories."""
-        prefix = ctx.clean_prefix
+        prefix = PREFIX
         os_label = self.get_os_label()
 
         if query:
             query = query.strip()
             cog = self.bot.get_cog(query) or self.bot.get_cog(query.title())
             if cog:
+                count = get_cog_command_count(cog)
                 embed = discord.Embed(
-                    title=f"⚙️ {cog.qualified_name} Commands",
+                    title=f"{cog.qualified_name} Commands",
                     description=f"Current Prefix: `{prefix}`\n{cog.description or 'No category description provided.'}",
                     color=0x5865F2,
                 )
@@ -236,7 +256,7 @@ class Default(commands.Cog):
                         )
 
                 embed.set_footer(
-                    text=f"v{VERSION} | OS: {os_label} | Use {prefix}help <command> for parameters."
+                    text=f"v{VERSION} | Total commands for {cog.qualified_name} category: {count}"
                 )
                 return await ctx.reply(embed=embed, mention_author=False)
 
@@ -336,12 +356,43 @@ class Default(commands.Cog):
     @app_commands.describe(message="The message you want me to say secretly")
     async def echo_hidden(self, ctx: commands.Context, *, message: str):
         """Sends your message and removes the command trigger."""
+        
+        # Restrict ONLY the slash command invocation to moderators
+        if ctx.interaction and not ctx.author.guild_permissions.manage_messages:
+            return await ctx.interaction.response.send_message(
+                "❌ You must have `Manage Messages` permission to use the slash version of this command.", 
+                ephemeral=True
+            )
+
+        if ctx.interaction:
+            # Acknowledge privately for the moderator
+            await ctx.interaction.response.send_message("✅ Message sent.", ephemeral=True)
+            await ctx.channel.send(message)
+        else:
+            # Handle standard prefix command (.hecho / .echo hidden)
+            if ctx.guild:
+                try:
+                    await ctx.message.delete()
+                except (discord.Forbidden, discord.NotFound, discord.HTTPException):
+                    pass
+            await ctx.send(message)
+
         if ctx.guild:
-            try:
-                await ctx.message.delete()
-            except (discord.Forbidden, discord.NotFound, discord.HTTPException):
-                pass
-        await ctx.send(message)
+            from cogs.guild import load_settings
+            settings = load_settings()
+            log_channel_id = settings.get(str(ctx.guild.id))
+            if log_channel_id:
+                log_channel = self.bot.get_channel(log_channel_id)
+                if log_channel:
+                    embed = discord.Embed(
+                        title="Hidden Echo Used",
+                        description=f"**Content:**\n{message}",
+                        color=0x5865F2,
+                        timestamp=discord.utils.utcnow()
+                    )
+                    embed.add_field(name="User", value=f"{ctx.author} (`{ctx.author.id}`)", inline=True)
+                    embed.add_field(name="Channel", value=ctx.channel.mention, inline=True)
+                    await log_channel.send(embed=embed)
 
     @echo_group.command(name="embed", description="Make me say something inside an embed")
     @app_commands.describe(message="The message you want me to say inside an embed")

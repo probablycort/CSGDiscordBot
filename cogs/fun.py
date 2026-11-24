@@ -25,51 +25,56 @@ class Fun(commands.Cog):
     )
     async def song(self, ctx: commands.Context):
         """Displays details about the status lyric sequence."""
+        info = getattr(self.bot, "active_song_info", SONG_INFO)
         status_mode = (
             "Lyric Sequence (Active)"
             if self.bot.lyric_mode
             else "Normal Status Cycle"
         )
+        timing_str = (
+            "LRCLIB Synced Timestamps"
+            if info.get("synced")
+            else f"{LYRIC_DELAY} seconds / line"
+        )
 
         embed = discord.Embed(
-            title=f"🎵 {SONG_INFO['title']}",
-            description=f"By **{SONG_INFO['artist']}**",
+            title=f"🎵 {info.get('title', 'Unknown')}",
+            description=f"By **{info.get('artist', 'Unknown')}**",
             color=0x7289DA,
-            url=SONG_INFO.get("youtube_url"),
+            url=info.get("youtube_url"),
         )
         embed.add_field(
             name="Album",
-            value=f"`{SONG_INFO.get('album', 'N/A')}`",
+            value=f"`{info.get('album', 'N/A')}`",
             inline=True,
         )
         embed.add_field(
             name="Year",
-            value=f"`{SONG_INFO.get('release_year', 'N/A')}`",
+            value=f"`{info.get('release_year', 'N/A')}`",
             inline=True,
         )
         embed.add_field(
             name="Status Mode", value=f"`{status_mode}`", inline=False
         )
         embed.add_field(
-            name="Total Lyric Lines",
-            value=f"`{len(LYRICS)} lines`",
+            name="Total Lyric Entries",
+            value=f"`{info.get('line_count', len(LYRICS))} entries`",
             inline=True,
         )
         embed.add_field(
-            name="Lyric Delay", value=f"`{LYRIC_DELAY} seconds / line`", inline=True
+            name="Timing", value=f"`{timing_str}`", inline=True
         )
 
-        if SONG_INFO.get("youtube_url"):
+        if info.get("youtube_url"):
             embed.add_field(
                 name="Links",
-                value=f"[YouTube]({SONG_INFO['youtube_url']})",
+                value=f"[YouTube]({info['youtube_url']})",
                 inline=False,
             )
 
-        embed.set_footer(text="Statuses Info")
+        embed.set_footer(text="Statuses Info • Powered by lrclib.net")
 
         await ctx.send(embed=embed)
-
 
     @commands.hybrid_command(aliases=["dice"], description="Roll a dice")
     @app_commands.describe(max_val="The maximum number to roll (default: 6)")
@@ -80,11 +85,10 @@ class Fun(commands.Cog):
     @commands.hybrid_command(
         name="8ball",
         aliases=["eightball", "8b"],
-        description="Ask the magic 8-ball a question"
+        description="Ask the magic 8-ball a question",
     )
     @app_commands.describe(question="The question you want to ask the 8-ball")
     async def eight_ball(self, ctx: commands.Context, *, question: str):
-        # Add your custom responses to this list
         responses = [
             "It is certain",
             "Without a doubt",
@@ -163,7 +167,6 @@ class Fun(commands.Cog):
                 f"## Game over!\nYou ran out of tries. The number was **{number}**."
             )
 
-
     @commands.command(aliases=["choice"])
     async def choose(self, ctx, *, args):
         arguements = args.split(" ")
@@ -180,19 +183,19 @@ class Fun(commands.Cog):
     @commands.hybrid_command(
         name="cowsay",
         aliases=["cow"],
-        description="Make an ASCII cow speak your message"
+        description="Make an ASCII cow speak your message",
     )
     @app_commands.describe(message="The message for the cow to say")
     async def cowsay_cmd(self, ctx: commands.Context, *, message: str):
         """Make an ASCII cow speak your message."""
         cow_output = cowsay.get_output_string("cow", message)
-        
+
         embed = discord.Embed(
             title="Cowsay",
             description=f"```\n{cow_output}\n```",
-            color=0x5865F2
+            color=0x5865F2,
         )
-        
+
         await ctx.send(embed=embed)
 
 

@@ -42,7 +42,11 @@ class SearchSelect(discord.ui.Select):
 
         voice_channel = interaction.user.voice.channel
         if not player:
-            player = await voice_channel.connect(cls=wavelink.Player)
+            try:
+                player = await voice_channel.connect(cls=wavelink.Player)
+            except Exception:
+                await self.cog.reconnect_node()
+                player = await voice_channel.connect(cls=wavelink.Player)
             player.home = interaction.channel
         elif player.channel != voice_channel:
             await player.move_to(voice_channel)
@@ -50,24 +54,31 @@ class SearchSelect(discord.ui.Select):
         else:
             player.home = interaction.channel
 
-        if not player.playing:
-            await player.play(track)
-            embed = discord.Embed(
-                title="🎶 Now Playing",
-                description=f"[{track.title}]({track.uri}) by **{track.author}**",
-                color=0x5865F2,
-            )
-            if track.artwork:
-                embed.set_thumbnail(url=track.artwork)
-            await interaction.followup.edit_message(interaction.message.id, content=None, embed=embed, view=None)
-        else:
-            await player.queue.put_wait(track)
-            await interaction.followup.edit_message(
-                interaction.message.id,
-                content=f"➕ Added **[{track.title}]({track.uri})** to the queue!",
-                embed=None,
-                view=None,
-            )
+        try:
+            if not player.playing:
+                await player.play(track)
+                embed = discord.Embed(
+                    title="🎶 Now Playing",
+                    description=f"[{track.title}]({track.uri}) by **{track.author}**",
+                    color=0x5865F2,
+                )
+                if track.artwork:
+                    embed.set_thumbnail(url=track.artwork)
+                await interaction.followup.edit_message(interaction.message.id, content=None, embed=embed, view=None)
+            else:
+                await player.queue.put_wait(track)
+                await interaction.followup.edit_message(
+                    interaction.message.id,
+                    content=f"➕ Added **[{track.title}]({track.uri})** to the queue!",
+                    embed=None,
+                    view=None,
+                )
+        except Exception as e:
+            if getattr(e, "status", None) == 404 or "404" in str(e):
+                await self.cog.reconnect_node()
+                await interaction.followup.send("⚠️ Lavalink session expired. Reconnected node—please try your command again.", ephemeral=True)
+            else:
+                raise e
 
 
 class SearchView(discord.ui.View):
@@ -102,11 +113,8 @@ class MusicControlsView(discord.ui.View):
     def update_buttons(self):
         mode = self.player.queue.mode if self.player else wavelink.QueueMode.normal
         
-        # Loop Off Button
         self.off_btn.style = discord.ButtonStyle.primary if mode == wavelink.QueueMode.normal else discord.ButtonStyle.secondary
-        # Loop Track Button
         self.track_btn.style = discord.ButtonStyle.primary if mode == wavelink.QueueMode.loop else discord.ButtonStyle.secondary
-        # Loop Queue Button
         self.queue_btn.style = discord.ButtonStyle.primary if mode == wavelink.QueueMode.loop_all else discord.ButtonStyle.secondary
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
@@ -160,14 +168,22 @@ class Music(commands.Cog):
 
     async def cog_load(self):
         """Connect to the Lavalink node and start background tasks when the Cog is loaded."""
-        uri = f"https://{LAVALINK_HOST}" if LAVALINK_SECURE else f"http://{LAVALINK_HOST}:{LAVALINK_PORT}"
-        node = wavelink.Node(
-            uri=uri,
-            password=LAVALINK_PASSWORD
-        )
-        await wavelink.Pool.connect(nodes=[node], client=self.bot, cache_capacity=100)
+        await self.reconnect_node()
         self.check_inactivity.start()
         self.idle_node_refresh.start()
+
+    async def reconnect_node(self):
+        """Helper to cleanly connect or reconnect the Lavalink node."""
+        try:
+            uri = f"https://{LAVALINK_HOST}" if LAVALINK_SECURE else f"http://{LAVALINK_HOST}:{LAVALINK_PORT}"
+            node = wavelink.Node(
+                uri=uri,
+                password=LAVALINK_PASSWORD
+            )
+            await wavelink.Pool.connect(nodes=[node], client=self.bot, cache_capacity=100)
+            print("✅ Lavalink node successfully connected/reconnected.")
+        except Exception as e:
+            print(f"❌ Failed to connect Lavalink node: {e}")
 
     def cog_unload(self):
         self.check_inactivity.cancel()
@@ -201,17 +217,7 @@ class Music(commands.Cog):
             return
 
         print("💤 Bot is idle across all guilds. Refreshing Lavalink node connection...")
-        
-        try:
-            uri = f"https://{LAVALINK_HOST}" if LAVALINK_SECURE else f"http://{LAVALINK_HOST}:{LAVALINK_PORT}"
-            node = wavelink.Node(
-                uri=uri,
-                password=LAVALINK_PASSWORD
-            )
-            await wavelink.Pool.connect(nodes=[node], client=self.bot, cache_capacity=100)
-            print("✅ Successfully reconnected Lavalink node during idle period.")
-        except Exception as e:
-            print(f"❌ Failed to reconnect Lavalink node during idle refresh: {e}")
+        await self.reconnect_node()
 
     @idle_node_refresh.before_loop
     async def before_idle_refresh(self):
@@ -273,15 +279,17 @@ class Music(commands.Cog):
                 except discord.HTTPException:
                     pass
         except Exception as e:
-            print(f"⚠️ Lavalink node rate limit or error during track end handling: {e}")
+            print(f"⚠️ Lavalink node error during track end handling: {e}")
+            if getattr(e, "status", None) == 404 or "404" in str(e):
+                print("🔄 Stale session detected (404). Reconnecting node...")
+                await self.reconnect_node()
             if hasattr(player, "home") and player.home:
                 try:
-                    await player.home.send("⚠️ The public Lavalink node hit a rate limit (`429`) or error while trying to play the next track.")
+                    await player.home.send("⚠️ The public Lavalink node session expired or hit an error. Attempting auto-reconnect.")
                 except discord.HTTPException:
                     pass
 
     def format_millis(self, millis: int) -> str:
-        """Helper to format milliseconds into MM:SS or HH:MM:SS format."""
         seconds = int((millis / 1000) % 60)
         minutes = int((millis / (1000 * 60)) % 60)
         hours = int((millis / (1000 * 60 * 60)) % 24)
@@ -290,7 +298,6 @@ class Music(commands.Cog):
         return f"{minutes:02d}:{seconds:02d}"
 
     def parse_time_string(self, time_str: str) -> Optional[int]:
-        """Parses MM:SS, H:MM:SS, or raw seconds into total milliseconds."""
         time_str = time_str.strip()
         if time_str.isdigit():
             return int(time_str) * 1000
@@ -309,7 +316,6 @@ class Music(commands.Cog):
         return None
 
     def build_queue_embed(self, player: wavelink.Player) -> discord.Embed:
-        """Constructs the Embed representation of the current player queue."""
         embed = discord.Embed(title="🎵 Music Queue", color=0x5865F2)
         
         if player.current:
@@ -339,7 +345,6 @@ class Music(commands.Cog):
         return embed
 
     def build_nowplaying_embed(self, player: wavelink.Player) -> discord.Embed:
-        """Constructs the Embed representation of the currently playing track safely."""
         track = player.current
         if not track:
             return discord.Embed(
@@ -377,7 +382,6 @@ class Music(commands.Cog):
 
     @commands.hybrid_group(name="music", aliases=["m"], description="Music player commands powered by Wavelink & Lavalink")
     async def music_group(self, ctx: commands.Context):
-        """Parent command group for music."""
         if ctx.invoked_subcommand is None:
             await ctx.send_help(ctx.command)
 
@@ -396,7 +400,12 @@ class Music(commands.Cog):
             player.home = ctx.channel
             return await ctx.reply(f"🚚 Moved to **{voice_channel.name}**!", mention_author=False)
 
-        player = await voice_channel.connect(cls=wavelink.Player)
+        try:
+            player = await voice_channel.connect(cls=wavelink.Player)
+        except Exception:
+            await self.reconnect_node()
+            player = await voice_channel.connect(cls=wavelink.Player)
+
         player.home = ctx.channel
         await ctx.reply(f"🔌 Connected to **{voice_channel.name}**!", mention_author=False)
 
@@ -501,7 +510,6 @@ class Music(commands.Cog):
         if not ctx.author.voice or not ctx.author.voice.channel:
             return await ctx.reply("❌ You must be connected to a voice channel to use this command.", mention_author=False)
 
-        # Defer immediately to prevent Discord's 3-second interaction timeout
         if ctx.interaction:
             await ctx.interaction.response.defer()
         else:
@@ -510,7 +518,11 @@ class Music(commands.Cog):
         try:
             tracks = await self.robust_search(query)
         except Exception:
-            tracks = None
+            try:
+                await self.reconnect_node()
+                tracks = await self.robust_search(query)
+            except Exception:
+                tracks = None
 
         if not tracks:
             return await ctx.reply(f"❌ Could not find any tracks matching `{query}`.", mention_author=False)
@@ -540,7 +552,6 @@ class Music(commands.Cog):
         if not ctx.author.voice or not ctx.author.voice.channel:
             return await ctx.reply("❌ You must be connected to a voice channel to use this command.", mention_author=False)
 
-        # Defer immediately to prevent Discord's 3-second interaction timeout (Error 10062)
         if ctx.interaction:
             await ctx.interaction.response.defer()
         else:
@@ -550,7 +561,11 @@ class Music(commands.Cog):
         player: wavelink.Player = ctx.voice_client
 
         if not player:
-            player = await voice_channel.connect(cls=wavelink.Player)
+            try:
+                player = await voice_channel.connect(cls=wavelink.Player)
+            except Exception:
+                await self.reconnect_node()
+                player = await voice_channel.connect(cls=wavelink.Player)
             player.home = ctx.channel
         elif player.channel != voice_channel:
             await player.move_to(voice_channel)
@@ -569,34 +584,46 @@ class Music(commands.Cog):
                 return await ctx.reply("❌ Please provide a search query, URL, or upload an audio file!", mention_author=False)
             audio_url = query
 
-        tracks = await self.robust_search(audio_url)
+        try:
+            tracks = await self.robust_search(audio_url)
+        except Exception:
+            await self.reconnect_node()
+            tracks = await self.robust_search(audio_url)
+
         if not tracks:
             return await ctx.reply(f"❌ Could not find or load tracks for `{query or 'uploaded file'}`.", mention_author=False)
 
-        if isinstance(tracks, wavelink.Playlist):
-            added_count = len(tracks.tracks)
-            await player.queue.put_wait(tracks)
-            
-            if not player.playing:
-                await player.play(player.queue.get())
-                await ctx.reply(f"🎵 Started playing playlist **{tracks.name}** ({added_count} tracks)!", mention_author=False)
+        try:
+            if isinstance(tracks, wavelink.Playlist):
+                added_count = len(tracks.tracks)
+                await player.queue.put_wait(tracks)
+                
+                if not player.playing:
+                    await player.play(player.queue.get())
+                    await ctx.reply(f"🎵 Started playing playlist **{tracks.name}** ({added_count} tracks)!", mention_author=False)
+                else:
+                    await ctx.reply(f"➕ Added playlist **{tracks.name}** ({added_count} tracks) to the queue!", mention_author=False)
             else:
-                await ctx.reply(f"➕ Added playlist **{tracks.name}** ({added_count} tracks) to the queue!", mention_author=False)
-        else:
-            track = tracks[0]
-            if not player.playing:
-                await player.play(track)
-                embed = discord.Embed(
-                    title="🎶 Now Playing",
-                    description=f"[{track.title}]({track.uri}) by **{track.author}**",
-                    color=0x5865F2
-                )
-                if track.artwork:
-                    embed.set_thumbnail(url=track.artwork)
-                await ctx.reply(embed=embed, mention_author=False)
+                track = tracks[0]
+                if not player.playing:
+                    await player.play(track)
+                    embed = discord.Embed(
+                        title="🎶 Now Playing",
+                        description=f"[{track.title}]({track.uri}) by **{track.author}**",
+                        color=0x5865F2
+                    )
+                    if track.artwork:
+                        embed.set_thumbnail(url=track.artwork)
+                    await ctx.reply(embed=embed, mention_author=False)
+                else:
+                    await player.queue.put_wait(track)
+                    await ctx.reply(f"➕ Added **[{track.title}]({track.uri})** to the queue!", mention_author=False)
+        except Exception as e:
+            if getattr(e, "status", None) == 404 or "404" in str(e):
+                await self.reconnect_node()
+                await ctx.reply("⚠️ Lavalink session was dead (404). Node reconnected—please run your `.m play` command again.", mention_author=False)
             else:
-                await player.queue.put_wait(track)
-                await ctx.reply(f"➕ Added **[{track.title}]({track.uri})** to the queue!", mention_author=False)
+                raise e
 
     @music_group.command(name="skip", description="Skips the currently playing song (Vote-skip if > 5 members)")
     async def skip(self, ctx: commands.Context):

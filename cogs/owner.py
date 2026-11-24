@@ -87,6 +87,35 @@ class Core(commands.Cog):
         await ctx.reply(f"Successfully synced {len(commands_list)} commands.")
 
     @commands.is_owner()
+    @commands.command(name="statuslyrics", aliases=["setstatussong"], hidden=True)
+    async def statuslyrics(self, ctx: commands.Context, *, query: str):
+        """Change the status lyric sequence from LRCLIB (e.g. .statuslyrics BIRDBRAIN Jamie Paige)."""
+        await ctx.channel.typing()
+
+        title = query.strip()
+        artist = None
+
+        if " - " in query:
+            title, artist = [p.strip() for p in query.split(" - ", 1)]
+        elif " | " in query:
+            title, artist = [p.strip() for p in query.split(" | ", 1)]
+
+        meta = await self.bot.update_status_song(title, artist)
+        if not meta:
+            return await ctx.reply(f"❌ Could not find lyrics on LRCLIB for `{query}`.")
+
+        sync_label = "Synced (LRC timestamps)" if meta.get("synced") else "Unsynced (flat delay)"
+        embed = discord.Embed(
+            title="🎵 Status Lyrics Updated",
+            description=f"**{meta['title']}** by **{meta['artist']}**",
+            color=0x5865F2,
+        )
+        embed.add_field(name="Album", value=f"`{meta.get('album', 'N/A')}`", inline=True)
+        embed.add_field(name="Lines", value=f"`{meta.get('line_count', 0)} entries`", inline=True)
+        embed.add_field(name="Timing Mode", value=f"`{sync_label}`", inline=False)
+        await ctx.reply(embed=embed)
+
+    @commands.is_owner()
     @commands.command(hidden=True)
     async def shutdown(self, ctx: commands.Context):
         await ctx.reply("Shutting down, goodbye! :wave:")
