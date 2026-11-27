@@ -6,6 +6,7 @@ from discord.ext import commands, tasks
 import wavelink
 import aiohttp
 import asyncio
+import time
 from typing import Optional, Literal
 
 from config import LAVALINK_HOST, LAVALINK_PORT, LAVALINK_PASSWORD, LAVALINK_SECURE
@@ -42,11 +43,14 @@ class SearchSelect(discord.ui.Select):
 
         voice_channel = interaction.user.voice.channel
         if not player:
+            await self.cog.ensure_node()
             try:
-                player = await voice_channel.connect(cls=wavelink.Player)
-            except Exception:
-                await self.cog.reconnect_node()
-                player = await voice_channel.connect(cls=wavelink.Player)
+                player = await self.cog.connect_player(voice_channel)
+            except (wavelink.ChannelTimeoutException, wavelink.InvalidNodeException):
+                return await interaction.followup.send(
+                    "❌ I couldn't finish connecting to voice. The Lavalink node never completed the handshake. Please try again in a bit.",
+                    ephemeral=True,
+                )
             player.home = interaction.channel
         elif player.channel != voice_channel:
             await player.move_to(voice_channel)
@@ -170,24 +174,101 @@ class Music(commands.Cog):
         """Connect to the Lavalink node and start background tasks when the Cog is loaded."""
         await self.reconnect_node()
         self.check_inactivity.start()
-        self.idle_node_refresh.start()
 
     async def reconnect_node(self):
-        """Helper to cleanly connect or reconnect the Lavalink node."""
+        """Cleanly (re)connect the Lavalink node, fully removing old/stale ones first."""
+        # Pool.close() only disconnects nodes; it leaves them registered, which makes the
+        # next connect get skipped ("already have a node with identifier"). Eject each node instead.
+        for old in list(wavelink.Pool.nodes.values()):
+            try:
+                await old.close(eject=True)
+            except Exception as e:
+                print(f"⚠️ Failed to close old Lavalink node '{old.identifier}': {e}")
+
+        # If an old node is somehow still registered, use a fresh identifier so we're never skipped.
+        identifier = "main" if "main" not in wavelink.Pool.nodes else f"main-{int(time.time())}"
+
         try:
             uri = f"https://{LAVALINK_HOST}" if LAVALINK_SECURE else f"http://{LAVALINK_HOST}:{LAVALINK_PORT}"
             node = wavelink.Node(
+                identifier=identifier,
                 uri=uri,
                 password=LAVALINK_PASSWORD
             )
             await wavelink.Pool.connect(nodes=[node], client=self.bot, cache_capacity=100)
-            print("✅ Lavalink node successfully connected/reconnected.")
+
+            # Pool.connect can return before the node is READY, so wait for it (up to ~10s).
+            for _ in range(20):
+                if node.status is wavelink.NodeStatus.CONNECTED:
+                    print(f"✅ Lavalink node '{identifier}' connected/reconnected.")
+                    return
+                await asyncio.sleep(0.5)
+            print(f"⚠️ Lavalink node '{identifier}' was created but did not reach CONNECTED in time.")
         except Exception as e:
             print(f"❌ Failed to connect Lavalink node: {e}")
 
+    async def node_is_healthy(self) -> bool:
+        """True only if a node is CONNECTED *and* the server still recognises our Lavalink session.
+
+        A public node can restart or drop sessions while wavelink still reports CONNECTED; in that
+        state voice joins fail even though everything looks fine.
+        """
+        try:
+            node = wavelink.Pool.get_node()
+        except wavelink.InvalidNodeException:
+            return False
+        if node.status is not wavelink.NodeStatus.CONNECTED:
+            return False
+
+        probe = getattr(node, "fetch_players", None)
+        if probe is None:
+            return True  # can't probe on this wavelink version; trust the status
+
+        last_error = None
+        for attempt in range(2):  # one quick retry so a single network blip doesn't trigger a reconnect
+            try:
+                # Lists this session's players; errors (e.g. 404) if the server forgot our session.
+                await probe()
+                return True
+            except Exception as e:
+                last_error = e
+                if attempt == 0:
+                    await asyncio.sleep(1.0)
+        print(f"⚠️ Lavalink session check failed ({last_error.__class__.__name__}: {last_error})")
+        return False
+
+    async def ensure_node(self):
+        """Reconnects the node if it is missing, disconnected, or its session has gone stale."""
+        if not await self.node_is_healthy():
+            await self.reconnect_node()
+
+    async def connect_player(self, voice_channel: discord.VoiceChannel) -> wavelink.Player:
+        """Connect to voice. On a handshake timeout, clean up, refresh the node if needed, and retry once."""
+        for attempt in (1, 2):
+            try:
+                return await voice_channel.connect(cls=wavelink.Player, timeout=20.0)
+            except (wavelink.ChannelTimeoutException, asyncio.TimeoutError):
+                vc = voice_channel.guild.voice_client
+                if vc:
+                    await vc.disconnect(force=True)
+                if attempt == 2:
+                    raise
+                print("⚠️ Voice connect timed out; checking the Lavalink node and retrying once...")
+                if not await self.node_is_healthy():
+                    await self.reconnect_node()
+
+    async def _skip_track(self, player: wavelink.Player) -> bool:
+        """Skips the current track. If the current track is being looped, loop is turned off first,
+        otherwise the queue would just hand the same track back. Returns True if loop was disabled."""
+        loop_disabled = False
+        if player.queue.mode == wavelink.QueueMode.loop:
+            player.queue.mode = wavelink.QueueMode.normal
+            loop_disabled = True
+        await player.skip(force=True)
+        return loop_disabled
+
     def cog_unload(self):
         self.check_inactivity.cancel()
-        self.idle_node_refresh.cancel()
 
     @tasks.loop(minutes=1.0)
     async def check_inactivity(self):
@@ -206,22 +287,6 @@ class Music(commands.Cog):
                         await player.home.send("💤 Left the voice channel because everyone left.")
                     except discord.HTTPException:
                         pass
-
-    @tasks.loop(hours=3)
-    async def idle_node_refresh(self):
-        """Checks every 3 hours if the bot is idle everywhere, then reconnects the Lavalink node."""
-        await asyncio.sleep(3 * 3600)
-
-        active_vcs = [g for g in self.bot.guilds if g.voice_client is not None]
-        if active_vcs:
-            return
-
-        print("💤 Bot is idle across all guilds. Refreshing Lavalink node connection...")
-        await self.reconnect_node()
-
-    @idle_node_refresh.before_loop
-    async def before_idle_refresh(self):
-        await self.bot.wait_until_ready()
 
     async def robust_search(self, query: str) -> wavelink.Search | None:
         """Tries searching with different prefixes/formats as a fallback for unpredictable public nodes."""
@@ -244,50 +309,95 @@ class Music(commands.Cog):
         print(f"✅ Connected to Lavalink Node: {payload.node.identifier}")
 
     @commands.Cog.listener()
+    async def on_wavelink_websocket_closed(self, payload: wavelink.WebsocketClosedEventPayload):
+        """Diagnostic: shows why a voice websocket was closed (useful for voice handshake failures)."""
+        print(f"⚠️ Voice websocket closed: code={payload.code} reason={payload.reason!r} by_remote={payload.by_remote}")
+
+    @commands.Cog.listener()
+    async def on_wavelink_track_exception(self, payload: wavelink.TrackExceptionEventPayload):
+        """Diagnostic: the node failed to load/stream a track."""
+        title = getattr(payload.track, "title", "?")
+        print(f"⚠️ Track exception on '{title}': {payload.exception}")
+
+    @commands.Cog.listener()
+    async def on_wavelink_track_stuck(self, payload: wavelink.TrackStuckEventPayload):
+        """Diagnostic: the stream stalled mid-track."""
+        title = getattr(payload.track, "title", "?")
+        print(f"⚠️ Track stuck on '{title}' (threshold: {payload.threshold} ms)")
+
+    async def _notify_home(self, player: wavelink.Player, content: Optional[str] = None, embed: Optional[discord.Embed] = None):
+        home = getattr(player, "home", None)
+        if not home:
+            return
+        try:
+            await home.send(content=content, embed=embed)
+        except discord.HTTPException:
+            pass
+
+    @commands.Cog.listener()
     async def on_wavelink_track_end(self, payload: wavelink.TrackEndEventPayload):
-        """Automatically handle next track, queue looping, or notify queue completion."""
+        """Handle next track, queue looping, failed streams, or queue completion, depending on WHY the track ended."""
         player: wavelink.Player = payload.player
         if not player:
             return
 
+        # Lavalink reasons: finished, loadFailed, stopped (skip), replaced, cleanup.
+        reason = str(getattr(payload, "reason", "") or "").lower()
+        track = payload.track
+        if reason != "finished":
+            print(f"ℹ️ Track ended early: '{getattr(track, 'title', '?')}' (reason: {payload.reason})")
+
+        # 'replaced' = another track was started on top of it, 'cleanup' = the player was destroyed.
+        # Neither means "move on to the next track" (and neither means the queue finished).
+        if reason in ("replaced", "cleanup"):
+            return
+
+        failed = reason == "loadfailed"
+        key = getattr(track, "identifier", None) or getattr(track, "title", None)
+
         try:
-            if player.queue.mode == wavelink.QueueMode.loop:
-                await player.play(payload.track)
+            if reason == "finished" and hasattr(player, "retried_tracks"):
+                player.retried_tracks.discard(key)
+
+            if failed:
+                # The node couldn't stream the track. Retry it once, then give up and move on.
+                retried = getattr(player, "retried_tracks", None)
+                if retried is None:
+                    retried = set()
+                    player.retried_tracks = retried
+                if key not in retried:
+                    retried.add(key)
+                    await self._notify_home(player, f"⚠️ Playback of **{track.title}** failed. Retrying once...")
+                    await player.play(track)
+                    return
+                retried.discard(key)
+                await self._notify_home(player, f"❌ Couldn't play **{track.title}**. The stream failed twice.")
+            elif player.queue.mode == wavelink.QueueMode.loop and reason == "finished":
+                await player.play(track)
                 return
 
             if player.queue.is_empty:
-                if hasattr(player, "home") and player.home:
-                    try:
-                        await player.home.send("⏹️ Queue has finished! No more tracks left to play.")
-                    except discord.HTTPException:
-                        pass
+                if not failed:
+                    await self._notify_home(player, "⏹️ Queue has finished! No more tracks left to play.")
                 return
 
             next_track = await player.queue.get_wait()
             await player.play(next_track)
 
-            if hasattr(player, "home") and player.home:
-                try:
-                    embed = discord.Embed(
-                        title="🎶 Now Playing",
-                        description=f"[{next_track.title}]({next_track.uri}) by **{next_track.author}**",
-                        color=0x5865F2
-                    )
-                    if next_track.artwork:
-                        embed.set_thumbnail(url=next_track.artwork)
-                    await player.home.send(embed=embed)
-                except discord.HTTPException:
-                    pass
+            embed = discord.Embed(
+                title="🎶 Now Playing",
+                description=f"[{next_track.title}]({next_track.uri}) by **{next_track.author}**",
+                color=0x5865F2
+            )
+            if next_track.artwork:
+                embed.set_thumbnail(url=next_track.artwork)
+            await self._notify_home(player, embed=embed)
         except Exception as e:
             print(f"⚠️ Lavalink node error during track end handling: {e}")
             if getattr(e, "status", None) == 404 or "404" in str(e):
                 print("🔄 Stale session detected (404). Reconnecting node...")
                 await self.reconnect_node()
-            if hasattr(player, "home") and player.home:
-                try:
-                    await player.home.send("⚠️ The public Lavalink node session expired or hit an error. Attempting auto-reconnect.")
-                except discord.HTTPException:
-                    pass
+            await self._notify_home(player, "⚠️ The public Lavalink node session expired or hit an error. Attempting auto-reconnect.")
 
     def format_millis(self, millis: int) -> str:
         seconds = int((millis / 1000) % 60)
@@ -380,6 +490,20 @@ class Music(commands.Cog):
         embed.set_footer(text=f"Loop Mode: {mode_str}")
         return embed
 
+    @commands.is_owner()
+    @commands.command(name="nodes", hidden=True)
+    async def nodes_cmd(self, ctx: commands.Context):
+        """Owner-only diagnostic: lists the Lavalink nodes currently in the pool."""
+        lines = []
+        for n in wavelink.Pool.nodes.values():
+            try:
+                await n.fetch_players()
+                session = "session OK"
+            except Exception as e:
+                session = f"session check failed ({e.__class__.__name__})"
+            lines.append(f"`{n.identifier}`: {n.status.name}, {len(n.players)} players, {session}")
+        await ctx.reply("\n".join(lines) or "No nodes.", mention_author=False)
+
     @commands.hybrid_group(name="music", aliases=["m"], description="Music player commands powered by Wavelink & Lavalink")
     async def music_group(self, ctx: commands.Context):
         if ctx.invoked_subcommand is None:
@@ -389,6 +513,11 @@ class Music(commands.Cog):
     async def join(self, ctx: commands.Context):
         if not ctx.author.voice or not ctx.author.voice.channel:
             return await ctx.reply("❌ You must be connected to a voice channel to use this command.", mention_author=False)
+
+        if ctx.interaction:
+            await ctx.interaction.response.defer()
+        else:
+            await ctx.typing()
 
         voice_channel = ctx.author.voice.channel
         player: wavelink.Player = ctx.voice_client
@@ -400,11 +529,14 @@ class Music(commands.Cog):
             player.home = ctx.channel
             return await ctx.reply(f"🚚 Moved to **{voice_channel.name}**!", mention_author=False)
 
+        await self.ensure_node()
         try:
-            player = await voice_channel.connect(cls=wavelink.Player)
-        except Exception:
-            await self.reconnect_node()
-            player = await voice_channel.connect(cls=wavelink.Player)
+            player = await self.connect_player(voice_channel)
+        except (wavelink.ChannelTimeoutException, wavelink.InvalidNodeException):
+            return await ctx.reply(
+                "❌ I couldn't finish connecting to voice. The Lavalink node never completed the handshake. Please try again in a bit.",
+                mention_author=False,
+            )
 
         player.home = ctx.channel
         await ctx.reply(f"🔌 Connected to **{voice_channel.name}**!", mention_author=False)
@@ -419,27 +551,36 @@ class Music(commands.Cog):
         await player.disconnect()
         await ctx.reply("👋 Disconnected from the voice channel and cleared queue.", mention_author=False)
 
-    @music_group.command(name="loop", description="Set loop mode interactively via UI buttons")
-    @app_commands.describe(mode="Choose loop mode: off, track, or queue")
+    @music_group.command(name="loop", description="Loop the current track (or choose off/queue) and show the controls")
+    @app_commands.describe(mode="Loop mode: track (default), queue, or off")
     async def loop(self, ctx: commands.Context, mode: Optional[Literal["off", "track", "queue"]] = None):
         player: wavelink.Player = ctx.voice_client
         if not player:
             return await ctx.reply("❌ The bot is not in a voice channel.", mention_author=False)
 
-        if mode:
-            if mode == "track":
-                player.queue.mode = wavelink.QueueMode.loop
-            elif mode == "queue":
-                player.queue.mode = wavelink.QueueMode.loop_all
-            else:
-                player.queue.mode = wavelink.QueueMode.normal
+        # With no argument, loop the current track.
+        mode = mode or "track"
+        if mode == "track":
+            player.queue.mode = wavelink.QueueMode.loop
+            note = "🔂 Now looping the **current track**."
+        elif mode == "queue":
+            player.queue.mode = wavelink.QueueMode.loop_all
+            note = "🔁 Now looping the **whole queue**."
+        else:
+            player.queue.mode = wavelink.QueueMode.normal
+            note = "➡️ Loop is now **off**."
 
+        # The view is created AFTER the mode is set, so the buttons show the right state.
         view = MusicControlsView(self, player, ctx.author)
-        embed = self.build_queue_embed(player) if (player.playing or not player.queue.is_empty) else discord.Embed(
-            title="🔁 Loop Controls",
-            description="Use the buttons below to toggle loop mode or shuffle the queue.",
-            color=0x5865F2
-        )
+        if player.playing or not player.queue.is_empty:
+            embed = self.build_queue_embed(player)
+            embed.description = note
+        else:
+            embed = discord.Embed(
+                title="🔁 Loop Controls",
+                description=f"{note}\n\nUse the buttons below to toggle loop mode or shuffle the queue.",
+                color=0x5865F2
+            )
         await ctx.reply(embed=embed, view=view, mention_author=False)
 
     @music_group.command(name="queue", description="Shows the current song queue with interactive loop & shuffle buttons")
@@ -515,14 +656,8 @@ class Music(commands.Cog):
         else:
             await ctx.typing()
 
-        try:
-            tracks = await self.robust_search(query)
-        except Exception:
-            try:
-                await self.reconnect_node()
-                tracks = await self.robust_search(query)
-            except Exception:
-                tracks = None
+        await self.ensure_node()
+        tracks = await self.robust_search(query)
 
         if not tracks:
             return await ctx.reply(f"❌ Could not find any tracks matching `{query}`.", mention_author=False)
@@ -557,15 +692,19 @@ class Music(commands.Cog):
         else:
             await ctx.typing()
 
+        await self.ensure_node()
+
         voice_channel = ctx.author.voice.channel
         player: wavelink.Player = ctx.voice_client
 
         if not player:
             try:
-                player = await voice_channel.connect(cls=wavelink.Player)
-            except Exception:
-                await self.reconnect_node()
-                player = await voice_channel.connect(cls=wavelink.Player)
+                player = await self.connect_player(voice_channel)
+            except (wavelink.ChannelTimeoutException, wavelink.InvalidNodeException):
+                return await ctx.reply(
+                    "❌ I couldn't finish connecting to voice. The Lavalink node never completed the handshake. Please try again in a bit.",
+                    mention_author=False,
+                )
             player.home = ctx.channel
         elif player.channel != voice_channel:
             await player.move_to(voice_channel)
@@ -584,11 +723,7 @@ class Music(commands.Cog):
                 return await ctx.reply("❌ Please provide a search query, URL, or upload an audio file!", mention_author=False)
             audio_url = query
 
-        try:
-            tracks = await self.robust_search(audio_url)
-        except Exception:
-            await self.reconnect_node()
-            tracks = await self.robust_search(audio_url)
+        tracks = await self.robust_search(audio_url)
 
         if not tracks:
             return await ctx.reply(f"❌ Could not find or load tracks for `{query or 'uploaded file'}`.", mention_author=False)
@@ -639,8 +774,9 @@ class Music(commands.Cog):
         if len(human_members) <= 5 or is_mod:
             if hasattr(player, "skip_votes"):
                 player.skip_votes.clear()
-            await player.skip(force=True)
-            msg = await ctx.reply("⏭️ Skipped current track!", mention_author=False)
+            loop_disabled = await self._skip_track(player)
+            note = " Track loop was turned off." if loop_disabled else ""
+            await ctx.reply(f"⏭️ Skipped current track!{note}", mention_author=False)
             return
 
         if not hasattr(player, "skip_votes"):
@@ -655,8 +791,9 @@ class Music(commands.Cog):
 
         if current_votes >= required_votes:
             player.skip_votes.clear()
-            await player.skip(force=True)
-            msg = await ctx.reply(f"⏭️ Vote-skip passed ({current_votes}/{required_votes} votes)! Skipped current track.", mention_author=False)
+            loop_disabled = await self._skip_track(player)
+            note = " Track loop was turned off." if loop_disabled else ""
+            msg = await ctx.reply(f"⏭️ Vote-skip passed ({current_votes}/{required_votes} votes)! Skipped current track.{note}", mention_author=False)
             try:
                 await msg.add_reaction("✅")
             except discord.HTTPException:

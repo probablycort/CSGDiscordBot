@@ -8,7 +8,7 @@ load_dotenv()
 
 # ---------Bot prefix-----------
 PREFIX = "."
-VERSION = "4.2b"
+VERSION = "4.2c"
 
 # ---------Statuses-----------
 
@@ -27,7 +27,6 @@ NORMAL_STATUSES = (
     "my owner is a dumbass and gave their id to discord for my verified app badge",
     "lalala pipipi",
     "Made with <3 by CortSiriGoogle Community",
-    "lyrics statuses in testing",
     "...",  # Will trigger lyrics statuses. DO NOT REMOVE unless you do not want lyrics statuses.
 )
 
